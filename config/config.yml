@@ -1,0 +1,86 @@
+# omp-orchestra — reference config
+#
+# This file shows the exact keys the installer applies. It is NOT meant to be
+# copied over ~/.omp/agent/config.yml wholesale — install.sh applies each key
+# through `omp config set` so the rest of your settings survive.
+# Canonical source: install.sh
+
+# ── Model routing ─────────────────────────────────────────────────────────────
+# Volume work rides the free tier (google-antigravity) and the Codex plan;
+# frontier models orchestrate, plan, and validate. Comma lists are availability
+# fallback chains — first model whose provider has credentials wins.
+modelRoles:
+  # Orchestrator (main session): frontier Claude
+  default: anthropic/claude-fable-5
+  # Deep validator — reviewer agent + "slow" cycle slot: frontier Codex, max reasoning
+  slow: openai-codex/gpt-5.5:xhigh
+  # Architect — plan agent + plan mode
+  plan: anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:high
+  # Implementation workhorse — task + Tester agents (coding-tuned, cheap on quota)
+  task: openai-codex/gpt-5.3-codex:medium, anthropic/claude-sonnet-5:medium
+  # Scouts — explore / sonic / librarian: free Gemini first
+  smol: google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.4-mini, anthropic/claude-haiku-4-5
+  # Background micro-tasks (titles, memory, auto-thinking classification): free + fast
+  tiny: google-antigravity/gemini-3.1-flash-lite, google-antigravity/gemini-2.5-flash-lite
+  # Commit messages: free
+  commit: google-antigravity/gemini-3.5-flash
+  # UI/UX specialist
+  designer: anthropic/claude-sonnet-5:medium, google-antigravity/gemini-3.1-pro
+  # Image understanding (gemini-3.1-flash-image is text-only input — a generator, not vision)
+  vision: google-antigravity/gemini-3.1-pro, anthropic/claude-sonnet-5
+  # Continuous second-opinion reviewer of the main thread (cross-vendor vs Claude)
+  advisor: openai-codex/gpt-5.5:high
+
+# Free tiny model classifies per-prompt thinking depth; trivial turns stop
+# burning frontier high-thinking tokens.
+defaultThinkingLevel: auto
+
+# Runtime 429/limit resilience: when a role's model hits its quota window,
+# retry switches down this chain and reverts when the cooldown expires.
+# The `default` chain also applies to any role without its own chain.
+retry:
+  fallbackChains:
+    default:
+      - anthropic/claude-opus-4-8
+      - anthropic/claude-sonnet-5
+      - google-antigravity/claude-sonnet-4-6
+      - openai-codex/gpt-5.4
+    task:
+      - openai-codex/gpt-5.3-codex-spark
+      - anthropic/claude-sonnet-5
+      - google-antigravity/claude-sonnet-4-6
+      - openrouter/deepseek/deepseek-v4-pro
+    slow:
+      - openai-codex/gpt-5.4
+      - anthropic/claude-opus-4-8
+      - google-antigravity/gemini-3.1-pro
+    advisor:
+      - google-antigravity/gemini-3.1-pro
+      - openai-codex/gpt-5.4
+    smol:
+      - openai-codex/gpt-5.4-mini
+      - google-antigravity/gemini-3.1-flash-lite
+      - openrouter/deepseek/deepseek-v4-flash
+
+# Prefer subscription/free providers when a canonical model id is ambiguous;
+# openrouter (the only per-token billed provider) resolves last.
+modelProviderOrder:
+  - anthropic
+  - openai-codex
+  - google-antigravity
+  - openrouter
+
+# GPT-5.5 passively reviews every completed turn and interrupts on material risk.
+advisor:
+  enabled: true
+  subagents: false
+  syncBacklog: "3"
+
+task:
+  agentModelOverrides:
+    # Tests authored by a different vendor than the implementer (task role = Codex)
+    Tester: anthropic/claude-sonnet-5:medium
+  showResolvedModelBadge: true
+  enableLsp: true
+  # Nudge the orchestrator to delegate grunt work to the cheap tiers.
+  eager: preferred
