@@ -50,6 +50,7 @@ retry:
       - anthropic/claude-sonnet-5
       - google-antigravity/claude-sonnet-4-6
       - openrouter/deepseek/deepseek-v4-pro
+      - openrouter/deepseek/deepseek-v4-flash:free
     slow:
       - openai-codex/gpt-5.4
       - anthropic/claude-opus-4-8
@@ -61,6 +62,7 @@ retry:
       - openai-codex/gpt-5.4-mini
       - google-antigravity/gemini-3.1-flash-lite
       - openrouter/deepseek/deepseek-v4-flash
+      - openrouter/deepseek/deepseek-v4-flash:free
 
 # Prefer subscription/free providers when a canonical model id is ambiguous;
 # openrouter (the only per-token billed provider) resolves last.

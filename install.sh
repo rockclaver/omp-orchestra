@@ -61,10 +61,10 @@ say "    ok: defaultThinkingLevel=auto"
 # expiry. The "default" chain applies to any role without its own chain.
 omp config set retry.fallbackChains '{
   "default": ["anthropic/claude-opus-4-8","anthropic/claude-sonnet-5","google-antigravity/claude-sonnet-4-6","openai-codex/gpt-5.4"],
-  "task":    ["openai-codex/gpt-5.3-codex-spark","anthropic/claude-sonnet-5","google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro"],
+  "task":    ["openai-codex/gpt-5.3-codex-spark","anthropic/claude-sonnet-5","google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro","openrouter/deepseek/deepseek-v4-flash:free"],
   "slow":    ["openai-codex/gpt-5.4","anthropic/claude-opus-4-8","google-antigravity/gemini-3.1-pro"],
   "advisor": ["google-antigravity/gemini-3.1-pro","openai-codex/gpt-5.4"],
-  "smol":    ["openai-codex/gpt-5.4-mini","google-antigravity/gemini-3.1-flash-lite","openrouter/deepseek/deepseek-v4-flash"]
+  "smol":    ["openai-codex/gpt-5.4-mini","google-antigravity/gemini-3.1-flash-lite","openrouter/deepseek/deepseek-v4-flash","openrouter/deepseek/deepseek-v4-flash:free"]
 }'
 say "    ok: retry.fallbackChains"
 
