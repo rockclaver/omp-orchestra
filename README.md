@@ -18,7 +18,7 @@ omp supports a **model role** per job. This config exploits that fully:
 
 | Tier | Role(s) | Model | Job |
 |---|---|---|---|
-| 🧠 Frontier | `default` | `claude-fable-5` | Orchestrates, makes judgment calls |
+| 🧠 Frontier | `default` | `claude-opus-4-8` | Orchestrates, makes judgment calls (→ `gpt-5.5` if Anthropic login absent) |
 | 🧠 Frontier | `slow` | `gpt-5.5:xhigh` | `reviewer` agent — deep validation, **cross-vendor** from the orchestrator |
 | 🧠 Frontier | `advisor` | `gpt-5.5:high` | Passively reviews *every completed turn*, interrupts on material risk |
 | 🏗️ Architect | `plan` | `claude-opus-4-8:high` | Plan mode + `plan` agent |
@@ -29,7 +29,7 @@ omp supports a **model role** per job. This config exploits that fully:
 
 ```mermaid
 flowchart TD
-    U[You] --> O["🧠 default — claude-fable-5<br/>orchestrator"]
+    U[You] --> O["🧠 default — opus-4-8<br/>orchestrator"]
     O -->|plan mode| P["🏗️ plan — opus-4-8:high"]
     O -->|delegates| T["🔨 task — gpt-5.3-codex<br/>implementers"]
     O -->|delegates| S["🔍 smol — gemini-3.5-flash FREE<br/>explore / sonic / librarian"]

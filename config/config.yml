@@ -10,8 +10,8 @@
 # frontier models orchestrate, plan, and validate. Comma lists are availability
 # fallback chains — first model whose provider has credentials wins.
 modelRoles:
-  # Orchestrator (main session): frontier Claude
-  default: anthropic/claude-fable-5
+  # Orchestrator (main session): frontier Opus; GPT-5.5 takes over if Anthropic login is absent
+  default: anthropic/claude-opus-4-8, openai-codex/gpt-5.5
   # Deep validator — reviewer agent + "slow" cycle slot: frontier Codex, max reasoning
   slow: openai-codex/gpt-5.5:xhigh
   # Architect — plan agent + plan mode
@@ -41,10 +41,11 @@ defaultThinkingLevel: auto
 retry:
   fallbackChains:
     default:
-      - anthropic/claude-opus-4-8
+      - openai-codex/gpt-5.5
       - anthropic/claude-sonnet-5
-      - google-antigravity/claude-sonnet-4-6
       - openai-codex/gpt-5.4
+      - google-antigravity/claude-sonnet-4-6
+      - openrouter/deepseek/deepseek-v4-pro
     task:
       - openai-codex/gpt-5.3-codex-spark
       - anthropic/claude-sonnet-5

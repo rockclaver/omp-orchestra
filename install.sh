@@ -33,7 +33,7 @@ fi
 # Comma lists are availability fallback chains: first model whose provider has
 # credentials wins. Missing providers degrade gracefully to the next entry.
 omp config set modelRoles '{
-  "default":  "anthropic/claude-fable-5",
+  "default":  "anthropic/claude-opus-4-8, openai-codex/gpt-5.5",
   "slow":     "openai-codex/gpt-5.5:xhigh",
   "plan":     "anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:high",
   "task":     "openai-codex/gpt-5.3-codex:medium, anthropic/claude-sonnet-5:medium",
@@ -60,7 +60,7 @@ say "    ok: defaultThinkingLevel=auto"
 # When a role's model 429s, retry walks this chain and reverts on cooldown
 # expiry. The "default" chain applies to any role without its own chain.
 omp config set retry.fallbackChains '{
-  "default": ["anthropic/claude-opus-4-8","anthropic/claude-sonnet-5","google-antigravity/claude-sonnet-4-6","openai-codex/gpt-5.4"],
+  "default": ["openai-codex/gpt-5.5","anthropic/claude-sonnet-5","openai-codex/gpt-5.4","google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro"],
   "task":    ["openai-codex/gpt-5.3-codex-spark","anthropic/claude-sonnet-5","google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro","openrouter/deepseek/deepseek-v4-flash:free"],
   "slow":    ["openai-codex/gpt-5.4","anthropic/claude-opus-4-8","google-antigravity/gemini-3.1-pro"],
   "advisor": ["google-antigravity/gemini-3.1-pro","openai-codex/gpt-5.4"],
