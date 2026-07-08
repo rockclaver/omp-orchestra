@@ -5,10 +5,11 @@
 Frontier models orchestrate, plan, and validate. Cheap coding models implement. Free models scout. Every quota wall degrades gracefully instead of stalling your session.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rockclaver/omp-orchestra/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/rockclaver/omp-orchestra/main/install.sh | sh              # fable profile (default)
+curl -fsSL https://raw.githubusercontent.com/rockclaver/omp-orchestra/main/install.sh | sh -s -- opus   # or: codex
 ```
 
-The installer only uses `omp config set` (schema-validated, merge-safe) — your theme, keybindings, and approvals are untouched, and your previous `config.yml` is backed up first. No secrets are read or written.
+The installer only uses `omp config set` (schema-validated, merge-safe) — your theme, keybindings, and approvals are untouched, and your previous `config.yml` is backed up first. No secrets are read or written. Re-run with a different [profile](#frontier-profiles) at any time to swap the frontier.
 
 ## Philosophy
 
@@ -18,10 +19,10 @@ omp supports a **model role** per job. This config exploits that fully:
 
 | Tier | Role(s) | Model | Job |
 |---|---|---|---|
-| 🧠 Frontier | `default` | `claude-opus-4-8` | Orchestrates, makes judgment calls (→ `gpt-5.5` if Anthropic login absent) |
+| 🧠 Frontier | `default` | `claude-fable-5` | Orchestrates, makes judgment calls (availability fallbacks: `opus-4-8` → `gpt-5.5`) |
 | 🧠 Frontier | `slow` | `gpt-5.5:xhigh` | `reviewer` agent — deep validation, **cross-vendor** from the orchestrator |
 | 🧠 Frontier | `advisor` | `gpt-5.5:high` | Passively reviews *every completed turn*, interrupts on material risk |
-| 🏗️ Architect | `plan` | `claude-opus-4-8:high` | Plan mode + `plan` agent |
+| 🏗️ Architect | `plan` | `claude-fable-5:high` | Plan mode + `plan` agent |
 | 🔨 Implementer | `task` | `gpt-5.3-codex:medium` | `task` workers — coding-tuned, cheap on quota |
 | 🔨 Implementer | — | `claude-sonnet-5:medium` | `Tester` agent — tests authored by a **different vendor** than the implementer |
 | 🔍 Scout | `smol` | `gemini-3.5-flash` *(free)* | `explore` / `sonic` / `librarian` — high-volume reading |
@@ -29,8 +30,8 @@ omp supports a **model role** per job. This config exploits that fully:
 
 ```mermaid
 flowchart TD
-    U[You] --> O["🧠 default — opus-4-8<br/>orchestrator"]
-    O -->|plan mode| P["🏗️ plan — opus-4-8:high"]
+    U[You] --> O["🧠 default — fable-5<br/>orchestrator"]
+    O -->|plan mode| P["🏗️ plan — fable-5:high"]
     O -->|delegates| T["🔨 task — gpt-5.3-codex<br/>implementers"]
     O -->|delegates| S["🔍 smol — gemini-3.5-flash FREE<br/>explore / sonic / librarian"]
     T --> R["🧠 slow — gpt-5.5:xhigh<br/>reviewer"]
@@ -42,6 +43,25 @@ flowchart TD
 ### Why cross-vendor validation
 
 Same-vendor models share blind spots. Here, Claude's orchestration is reviewed by GPT-5.5; Codex's implementations are tested by Claude Sonnet. Vendor-correlated failure modes don't survive the pipeline.
+
+## Frontier profiles
+
+The frontier slice — orchestrator (`default`), architect (`plan`), deep validator (`slow`), per-turn `advisor`, and their 429 fallback chains — is a **profile**. Validators always sit on a different vendor than the orchestrator. Everything else (implementers, scouts, background tiers, quota chains for them) is shared:
+
+| Profile | Orchestrator | Architect | Deep validator + advisor |
+|---|---|---|---|
+| `fable` *(default)* | `claude-fable-5` | `claude-fable-5:high` | `gpt-5.5` |
+| `opus` | `claude-opus-4-8` | `claude-opus-4-8:high` | `gpt-5.5` |
+| `codex` | `gpt-5.5` | `gpt-5.5:high` | `claude-opus-4-8` |
+
+Swap by re-running the installer — idempotent, merge-safe, config backed up first:
+
+```sh
+./install.sh opus                        # or: fable, codex
+OMP_ORCHESTRA_PROFILE=codex ./install.sh # env var works too (e.g. for curl | sh)
+```
+
+Per-profile reference slices live in [`config/profiles/`](config/profiles/).
 
 ## Quota resilience (the part that actually saves you money)
 
@@ -81,7 +101,7 @@ Reference copies live in [`config/`](config/); `install.sh` is canonical.
 
 ## Customization
 
-- Different frontier? Change one line: `omp config set modelRoles '{...}'` or edit `~/.omp/agent/config.yml` → `modelRoles.default`.
+- Different frontier? Swap [profiles](#frontier-profiles): `./install.sh opus`. For a model outside the built-in profiles, edit `~/.omp/agent/config.yml` → `modelRoles.default`.
 - More/less advisor: `omp config set advisor.enabled false`, or tune `advisor.syncBacklog` (`off`/`1`/`3`/`5`).
 - Per-project overrides: drop a `.omp/config.yml` in any repo — same keys, project-scoped.
 - Deeper thinking by default: `omp config set defaultThinkingLevel high`.

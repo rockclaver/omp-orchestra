@@ -1,8 +1,12 @@
-# omp-orchestra — reference config
+# omp-orchestra — reference config (default profile: fable)
 #
 # This file shows the exact keys the installer applies. It is NOT meant to be
 # copied over ~/.omp/agent/config.yml wholesale — install.sh applies each key
 # through `omp config set` so the rest of your settings survive.
+#
+# The frontier roles (modelRoles default/plan/slow/advisor) and the default/
+# slow/advisor fallback chains are profile-dependent — see config/profiles/
+# for the opus and codex variants. Everything else is shared.
 # Canonical source: install.sh
 
 # ── Model routing ─────────────────────────────────────────────────────────────
@@ -10,12 +14,13 @@
 # frontier models orchestrate, plan, and validate. Comma lists are availability
 # fallback chains — first model whose provider has credentials wins.
 modelRoles:
-  # Orchestrator (main session): frontier Opus; GPT-5.5 takes over if Anthropic login is absent
-  default: anthropic/claude-opus-4-8, openai-codex/gpt-5.5
+  # Orchestrator (main session): Fable frontier; Opus → GPT-5.5 availability fallbacks.
+  # If Fable itself is blocked (not a credentials gap), swap: ./install.sh opus
+  default: anthropic/claude-fable-5, anthropic/claude-opus-4-8, openai-codex/gpt-5.5
   # Deep validator — reviewer agent + "slow" cycle slot: frontier Codex, max reasoning
   slow: openai-codex/gpt-5.5:xhigh
   # Architect — plan agent + plan mode
-  plan: anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:high
+  plan: anthropic/claude-fable-5:high, anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:high
   # Implementation workhorse — task + Tester agents (coding-tuned, cheap on quota)
   task: openai-codex/gpt-5.3-codex:medium, anthropic/claude-sonnet-5:medium
   # Scouts — explore / sonic / librarian: free Gemini first
@@ -41,6 +46,7 @@ defaultThinkingLevel: auto
 retry:
   fallbackChains:
     default:
+      - anthropic/claude-opus-4-8
       - openai-codex/gpt-5.5
       - anthropic/claude-sonnet-5
       - openai-codex/gpt-5.4

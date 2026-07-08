@@ -1,0 +1,28 @@
+# omp-orchestra profile: codex
+# Frontier orchestrator: GPT-5.5. Cross-vendor validation by Claude Opus 4.8.
+# Apply: ./install.sh codex   (only these keys differ between profiles)
+
+modelRoles:
+  # Orchestrator: Codex frontier; Opus takes over if the ChatGPT plan is absent
+  default: openai-codex/gpt-5.5, anthropic/claude-opus-4-8
+  # Architect — plan agent + plan mode
+  plan: openai-codex/gpt-5.5:high, anthropic/claude-opus-4-8:high
+  # Deep validator — reviewer agent: frontier Claude, cross-vendor from the orchestrator
+  slow: anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:xhigh
+  # Per-turn second opinion, cross-vendor from the orchestrator
+  advisor: anthropic/claude-opus-4-8:high, google-antigravity/gemini-3.1-pro
+
+retry:
+  fallbackChains:
+    default:
+      - anthropic/claude-opus-4-8
+      - openai-codex/gpt-5.4
+      - anthropic/claude-sonnet-5
+      - google-antigravity/claude-sonnet-4-6
+      - openrouter/deepseek/deepseek-v4-pro
+    slow:
+      - openai-codex/gpt-5.4
+      - google-antigravity/gemini-3.1-pro
+    advisor:
+      - google-antigravity/gemini-3.1-pro
+      - openai-codex/gpt-5.4
