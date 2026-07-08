@@ -23,7 +23,7 @@ omp supports a **model role** per job. This config exploits that fully:
 | 🧠 Frontier | `slow` | `gpt-5.5:xhigh` | `reviewer` agent — deep validation, **cross-vendor** from the orchestrator |
 | 🧠 Frontier | `advisor` | `gpt-5.5:high` | Passively reviews *every completed turn*, interrupts on material risk |
 | 🏗️ Architect | `plan` | `claude-fable-5:high` | Plan mode + `plan` agent |
-| 🔨 Implementer | `task` | `gpt-5.3-codex:medium` | `task` workers — coding-tuned, cheap on quota |
+| 🔨 Implementer | `task` | `gpt-5.3-codex-spark:medium` | `task` workers — coding-tuned, its own usually-idle quota window (mainline `gpt-5.x-codex` is gated off ChatGPT accounts) |
 | 🔨 Implementer | — | `claude-sonnet-5:medium` | `Tester` agent — tests authored by a **different vendor** than the implementer |
 | 🔍 Scout | `smol` | `gemini-3.5-flash` *(free)* | `explore` / `sonic` / `librarian` — high-volume reading |
 | 🤖 Background | `tiny`, `commit` | `gemini flash-lite` *(free)* | Titles, memory, thinking-depth classification, commit messages |
@@ -32,7 +32,7 @@ omp supports a **model role** per job. This config exploits that fully:
 flowchart TD
     U[You] --> O["🧠 default — fable-5<br/>orchestrator"]
     O -->|plan mode| P["🏗️ plan — fable-5:high"]
-    O -->|delegates| T["🔨 task — gpt-5.3-codex<br/>implementers"]
+    O -->|delegates| T["🔨 task — gpt-5.3-codex-spark<br/>implementers"]
     O -->|delegates| S["🔍 smol — gemini-3.5-flash FREE<br/>explore / sonic / librarian"]
     T --> R["🧠 slow — gpt-5.5:xhigh<br/>reviewer"]
     T --> TE["🔨 Tester — claude-sonnet-5<br/>cross-vendor tests"]
@@ -68,7 +68,7 @@ Per-profile reference slices live in [`config/profiles/`](config/profiles/).
 Subscription plans fail at the margin: you hit the 5-hour window and either wait, buy a second account, or upgrade. This config attacks that three ways:
 
 1. **Role routing** keeps premium windows for premium work — scouts and background jobs never touch them.
-2. **`retry.fallbackChains`** (per role): on a 429, the session switches down a chain — e.g. `task` falls to `gpt-5.3-codex-spark` (a *separate, usually idle* Codex quota window), then free Antigravity Claude, then per-token DeepSeek (`$0.435/$0.87 per 1M`, effectively unlimited) — and reverts automatically when the cooldown expires.
+2. **`retry.fallbackChains`** (per role): on a 429, the session switches down a chain — e.g. `task` falls to `claude-sonnet-5`, then `gpt-5.4`, then free Antigravity Claude, then per-token DeepSeek (`$0.435/$0.87 per 1M`, effectively unlimited) — and reverts automatically when the cooldown expires.
 3. **`defaultThinkingLevel: auto`** — a free tiny model classifies each prompt's difficulty, so trivial turns stop burning frontier high-thinking output tokens (the most expensive tokens you own).
 
 Measured on the author's telemetry before/after: the single biggest waste was a frontier model assigned to the `smol` scout role — 27% of all rate-limit errors came from that one misrouting.
@@ -89,6 +89,18 @@ Measured on the author's telemetry before/after: the single biggest waste was a 
 | `WATCHDOG.md` | Advisor review priorities tuned for cheap-implementer failure modes |
 
 Reference copies live in [`config/`](config/); `install.sh` is canonical.
+
+## Verifying your routing actually works
+
+Availability fallbacks only check **provider credentials**, and retry chains only trip on **429/5xx**. A model that is plan-gated or tier-blocked fails with `invalid_request_error` and nothing falls back — the role hard-fails. (Observed live: mainline `gpt-5.x-codex` gated off ChatGPT accounts; Fable tier-blocked per credential.)
+
+```sh
+./verify.sh          # live-probe every model in modelRoles + fallback chains
+./verify.sh task     # probe a single role
+```
+
+Non-zero exit and a `FAIL:` line name the dead entry; models from providers you haven't connected print `skip:` (providers are optional by design — entitlement errors like "not authorized"/plan-gating still FAIL). Run it after any provider plan change, model deprecation, or access incident.
+
 
 ## Requirements
 

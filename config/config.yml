@@ -21,8 +21,11 @@ modelRoles:
   slow: openai-codex/gpt-5.5:xhigh
   # Architect — plan agent + plan mode
   plan: anthropic/claude-fable-5:high, anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:high
-  # Implementation workhorse — task + Tester agents (coding-tuned, cheap on quota)
-  task: openai-codex/gpt-5.3-codex:medium, anthropic/claude-sonnet-5:medium
+  # Implementation workhorse — task + Tester agents (coding-tuned, cheap on quota).
+  # NOTE: mainline gpt-5.x-codex models are gated off ChatGPT accounts (verified
+  # 2026-07-08: invalid_request_error, which does NOT trip fallbacks) — spark is
+  # the entitled coding-tuned window.
+  task: openai-codex/gpt-5.3-codex-spark:medium, anthropic/claude-sonnet-5:medium
   # Scouts — explore / sonic / librarian: free Gemini first
   smol: google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.4-mini, anthropic/claude-haiku-4-5
   # Background micro-tasks (titles, memory, auto-thinking classification): free + fast
@@ -53,11 +56,11 @@ retry:
       - google-antigravity/claude-sonnet-4-6
       - openrouter/deepseek/deepseek-v4-pro
     task:
-      - openai-codex/gpt-5.3-codex-spark
       - anthropic/claude-sonnet-5
+      - openai-codex/gpt-5.4
       - google-antigravity/claude-sonnet-4-6
       - openrouter/deepseek/deepseek-v4-pro
-      - openrouter/deepseek/deepseek-v4-flash:free
+      - openrouter/deepseek/deepseek-v4-flash
     slow:
       - openai-codex/gpt-5.4
       - anthropic/claude-opus-4-8
@@ -69,7 +72,6 @@ retry:
       - openai-codex/gpt-5.4-mini
       - google-antigravity/gemini-3.1-flash-lite
       - openrouter/deepseek/deepseek-v4-flash
-      - openrouter/deepseek/deepseek-v4-flash:free
 
 # Prefer subscription/free providers when a canonical model id is ambiguous;
 # openrouter (the only per-token billed provider) resolves last.

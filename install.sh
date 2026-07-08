@@ -82,7 +82,7 @@ omp config set modelRoles "{
   \"default\":  \"$ROLE_DEFAULT\",
   \"slow\":     \"$ROLE_SLOW\",
   \"plan\":     \"$ROLE_PLAN\",
-  \"task\":     \"openai-codex/gpt-5.3-codex:medium, anthropic/claude-sonnet-5:medium\",
+  \"task\":     \"openai-codex/gpt-5.3-codex-spark:medium, anthropic/claude-sonnet-5:medium\",
   \"smol\":     \"google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.4-mini, anthropic/claude-haiku-4-5\",
   \"tiny\":     \"google-antigravity/gemini-3.1-flash-lite, google-antigravity/gemini-2.5-flash-lite\",
   \"commit\":   \"google-antigravity/gemini-3.5-flash\",
@@ -107,10 +107,10 @@ say "    ok: defaultThinkingLevel=auto"
 # expiry. The "default" chain applies to any role without its own chain.
 omp config set retry.fallbackChains "{
   \"default\": $CHAIN_DEFAULT,
-  \"task\":    [\"openai-codex/gpt-5.3-codex-spark\",\"anthropic/claude-sonnet-5\",\"google-antigravity/claude-sonnet-4-6\",\"openrouter/deepseek/deepseek-v4-pro\",\"openrouter/deepseek/deepseek-v4-flash:free\"],
+  \"task\":    [\"anthropic/claude-sonnet-5\",\"openai-codex/gpt-5.4\",\"google-antigravity/claude-sonnet-4-6\",\"openrouter/deepseek/deepseek-v4-pro\",\"openrouter/deepseek/deepseek-v4-flash\"],
   \"slow\":    $CHAIN_SLOW,
   \"advisor\": $CHAIN_ADVISOR,
-  \"smol\":    [\"openai-codex/gpt-5.4-mini\",\"google-antigravity/gemini-3.1-flash-lite\",\"openrouter/deepseek/deepseek-v4-flash\",\"openrouter/deepseek/deepseek-v4-flash:free\"]
+  \"smol\":    [\"openai-codex/gpt-5.4-mini\",\"google-antigravity/gemini-3.1-flash-lite\",\"openrouter/deepseek/deepseek-v4-flash\"]
 }"
 say "    ok: retry.fallbackChains"
 
