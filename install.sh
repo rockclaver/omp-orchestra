@@ -27,31 +27,31 @@ Install Oh My Pi first, then re-run this script."
 PROFILE="${1:-${OMP_ORCHESTRA_PROFILE:-fable}}"
 case "$PROFILE" in
   fable)
-    ROLE_DEFAULT="anthropic/claude-fable-5, anthropic/claude-opus-4-8, openai-codex/gpt-5.5"
-    ROLE_PLAN="anthropic/claude-fable-5:high, anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:high"
-    ROLE_SLOW="openai-codex/gpt-5.5:xhigh"
-    ROLE_ADVISOR="openai-codex/gpt-5.5:high"
-    CHAIN_DEFAULT='["anthropic/claude-opus-4-8","openai-codex/gpt-5.5","anthropic/claude-sonnet-5","openai-codex/gpt-5.4","google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro"]'
-    CHAIN_SLOW='["openai-codex/gpt-5.4","anthropic/claude-opus-4-8","google-antigravity/gemini-3.1-pro"]'
-    CHAIN_ADVISOR='["google-antigravity/gemini-3.1-pro","openai-codex/gpt-5.4"]'
+    ROLE_DEFAULT="anthropic/claude-fable-5, anthropic/claude-opus-4-8, openai-codex/gpt-5.6-sol"
+    ROLE_PLAN="anthropic/claude-fable-5:high, anthropic/claude-opus-4-8:high, openai-codex/gpt-5.6-sol:high"
+    ROLE_SLOW="openai-codex/gpt-5.6-sol:xhigh"
+    ROLE_ADVISOR="openai-codex/gpt-5.6-terra:high"
+    CHAIN_DEFAULT='["anthropic/claude-opus-4-8","openai-codex/gpt-5.6-sol","anthropic/claude-sonnet-5","openai-codex/gpt-5.6-terra","google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro"]'
+    CHAIN_SLOW='["openai-codex/gpt-5.6-terra","anthropic/claude-opus-4-8","google-antigravity/gemini-3.1-pro"]'
+    CHAIN_ADVISOR='["google-antigravity/gemini-3.1-pro","openai-codex/gpt-5.6-luna"]'
     ;;
   opus)
-    ROLE_DEFAULT="anthropic/claude-opus-4-8, openai-codex/gpt-5.5"
-    ROLE_PLAN="anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:high"
-    ROLE_SLOW="openai-codex/gpt-5.5:xhigh"
-    ROLE_ADVISOR="openai-codex/gpt-5.5:high"
-    CHAIN_DEFAULT='["openai-codex/gpt-5.5","anthropic/claude-sonnet-5","openai-codex/gpt-5.4","google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro"]'
-    CHAIN_SLOW='["openai-codex/gpt-5.4","anthropic/claude-opus-4-8","google-antigravity/gemini-3.1-pro"]'
-    CHAIN_ADVISOR='["google-antigravity/gemini-3.1-pro","openai-codex/gpt-5.4"]'
+    ROLE_DEFAULT="anthropic/claude-opus-4-8, openai-codex/gpt-5.6-sol"
+    ROLE_PLAN="anthropic/claude-opus-4-8:high, openai-codex/gpt-5.6-sol:high"
+    ROLE_SLOW="openai-codex/gpt-5.6-sol:xhigh"
+    ROLE_ADVISOR="openai-codex/gpt-5.6-terra:high"
+    CHAIN_DEFAULT='["openai-codex/gpt-5.6-sol","anthropic/claude-sonnet-5","openai-codex/gpt-5.6-terra","google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro"]'
+    CHAIN_SLOW='["openai-codex/gpt-5.6-terra","anthropic/claude-opus-4-8","google-antigravity/gemini-3.1-pro"]'
+    CHAIN_ADVISOR='["google-antigravity/gemini-3.1-pro","openai-codex/gpt-5.6-luna"]'
     ;;
   codex)
-    ROLE_DEFAULT="openai-codex/gpt-5.5, anthropic/claude-opus-4-8"
-    ROLE_PLAN="openai-codex/gpt-5.5:high, anthropic/claude-opus-4-8:high"
-    ROLE_SLOW="anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:xhigh"
+    ROLE_DEFAULT="openai-codex/gpt-5.6-sol, anthropic/claude-opus-4-8"
+    ROLE_PLAN="openai-codex/gpt-5.6-sol:high, anthropic/claude-opus-4-8:high"
+    ROLE_SLOW="anthropic/claude-opus-4-8:high, openai-codex/gpt-5.6-sol:xhigh"
     ROLE_ADVISOR="anthropic/claude-opus-4-8:high, google-antigravity/gemini-3.1-pro"
-    CHAIN_DEFAULT='["anthropic/claude-opus-4-8","openai-codex/gpt-5.4","anthropic/claude-sonnet-5","google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro"]'
-    CHAIN_SLOW='["openai-codex/gpt-5.4","google-antigravity/gemini-3.1-pro"]'
-    CHAIN_ADVISOR='["google-antigravity/gemini-3.1-pro","openai-codex/gpt-5.4"]'
+    CHAIN_DEFAULT='["anthropic/claude-opus-4-8","openai-codex/gpt-5.6-terra","anthropic/claude-sonnet-5","google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro"]'
+    CHAIN_SLOW='["openai-codex/gpt-5.6-terra","google-antigravity/gemini-3.1-pro"]'
+    CHAIN_ADVISOR='["google-antigravity/gemini-3.1-pro","openai-codex/gpt-5.6-terra"]'
     ;;
   *)
     fail "unknown profile '$PROFILE' (valid: fable, opus, codex)"
@@ -82,8 +82,8 @@ omp config set modelRoles "{
   \"default\":  \"$ROLE_DEFAULT\",
   \"slow\":     \"$ROLE_SLOW\",
   \"plan\":     \"$ROLE_PLAN\",
-  \"task\":     \"openai-codex/gpt-5.3-codex-spark:medium, anthropic/claude-sonnet-5:medium\",
-  \"smol\":     \"google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.4-mini, anthropic/claude-haiku-4-5\",
+  \"task\":     \"openai-codex/gpt-5.6-terra:medium, anthropic/claude-sonnet-5:medium\",
+  \"smol\":     \"google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna, anthropic/claude-haiku-4-5\",
   \"tiny\":     \"google-antigravity/gemini-3.1-flash-lite, google-antigravity/gemini-2.5-flash-lite\",
   \"commit\":   \"google-antigravity/gemini-3.5-flash\",
   \"designer\": \"anthropic/claude-sonnet-5:medium, google-antigravity/gemini-3.1-pro\",
@@ -107,10 +107,10 @@ say "    ok: defaultThinkingLevel=auto"
 # expiry. The "default" chain applies to any role without its own chain.
 omp config set retry.fallbackChains "{
   \"default\": $CHAIN_DEFAULT,
-  \"task\":    [\"anthropic/claude-sonnet-5\",\"openai-codex/gpt-5.4\",\"google-antigravity/claude-sonnet-4-6\",\"openrouter/deepseek/deepseek-v4-pro\",\"openrouter/deepseek/deepseek-v4-flash\"],
+  \"task\":    [\"openai-codex/gpt-5.3-codex-spark\",\"anthropic/claude-sonnet-5\",\"google-antigravity/claude-sonnet-4-6\",\"openrouter/deepseek/deepseek-v4-pro\",\"openrouter/deepseek/deepseek-v4-flash\"],
   \"slow\":    $CHAIN_SLOW,
   \"advisor\": $CHAIN_ADVISOR,
-  \"smol\":    [\"openai-codex/gpt-5.4-mini\",\"google-antigravity/gemini-3.1-flash-lite\",\"openrouter/deepseek/deepseek-v4-flash\"]
+  \"smol\":    [\"openai-codex/gpt-5.6-luna\",\"google-antigravity/gemini-3.1-flash-lite\",\"openrouter/deepseek/deepseek-v4-flash\"]
 }"
 say "    ok: retry.fallbackChains"
 

@@ -14,20 +14,22 @@
 # frontier models orchestrate, plan, and validate. Comma lists are availability
 # fallback chains — first model whose provider has credentials wins.
 modelRoles:
-  # Orchestrator (main session): Fable frontier; Opus → GPT-5.5 availability fallbacks.
+  # Orchestrator (main session): Fable frontier; Opus → GPT-5.6 Sol availability fallbacks.
   # If Fable itself is blocked (not a credentials gap), swap: ./install.sh opus
-  default: anthropic/claude-fable-5, anthropic/claude-opus-4-8, openai-codex/gpt-5.5
-  # Deep validator — reviewer agent + "slow" cycle slot: frontier Codex, max reasoning
-  slow: openai-codex/gpt-5.5:xhigh
+  default: anthropic/claude-fable-5, anthropic/claude-opus-4-8, openai-codex/gpt-5.6-sol
+  # Deep validator — reviewer agent + "slow" cycle slot: frontier Codex (Sol), max reasoning
+  slow: openai-codex/gpt-5.6-sol:xhigh
   # Architect — plan agent + plan mode
-  plan: anthropic/claude-fable-5:high, anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:high
-  # Implementation workhorse — task + Tester agents (coding-tuned, cheap on quota).
-  # NOTE: mainline gpt-5.x-codex models are gated off ChatGPT accounts (verified
-  # 2026-07-08: invalid_request_error, which does NOT trip fallbacks) — spark is
-  # the entitled coding-tuned window.
-  task: openai-codex/gpt-5.3-codex-spark:medium, anthropic/claude-sonnet-5:medium
-  # Scouts — explore / sonic / librarian: free Gemini first
-  smol: google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.4-mini, anthropic/claude-haiku-4-5
+  plan: anthropic/claude-fable-5:high, anthropic/claude-opus-4-8:high, openai-codex/gpt-5.6-sol:high
+  # Implementation workhorse — task agent: Terra (~GPT-5.5-class coding at half the
+  # cost). gpt-5.3-codex-spark moves to the 429 chain — it keeps its own usually-
+  # idle quota window, so it's the ideal first fallback when Terra's window trips.
+  # (5.6 sol/terra/luna verified entitled on ChatGPT accounts 2026-07-09; mainline
+  # gpt-5.x-codex remains gated — invalid_request_error does NOT trip fallbacks.)
+  task: openai-codex/gpt-5.6-terra:medium, anthropic/claude-sonnet-5:medium
+  # Scouts — explore / sonic / librarian: free Gemini first, Luna (fast/cheap 5.6
+  # tier, built for high-volume work) as the paid fallback
+  smol: google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna, anthropic/claude-haiku-4-5
   # Background micro-tasks (titles, memory, auto-thinking classification): free + fast
   tiny: google-antigravity/gemini-3.1-flash-lite, google-antigravity/gemini-2.5-flash-lite
   # Commit messages: free
@@ -36,8 +38,10 @@ modelRoles:
   designer: anthropic/claude-sonnet-5:medium, google-antigravity/gemini-3.1-pro
   # Image understanding (gemini-3.1-flash-image is text-only input — a generator, not vision)
   vision: google-antigravity/gemini-3.1-pro, anthropic/claude-sonnet-5
-  # Continuous second-opinion reviewer of the main thread (cross-vendor vs Claude)
-  advisor: openai-codex/gpt-5.5:high
+  # Continuous second-opinion reviewer of the main thread (cross-vendor vs Claude).
+  # Terra: ~GPT-5.5 review quality at half the per-turn cost — this role runs on
+  # every completed turn, so it's the single biggest recurring spend in the table.
+  advisor: openai-codex/gpt-5.6-terra:high
 
 # Free tiny model classifies per-prompt thinking depth; trivial turns stop
 # burning frontier high-thinking tokens.
@@ -50,26 +54,27 @@ retry:
   fallbackChains:
     default:
       - anthropic/claude-opus-4-8
-      - openai-codex/gpt-5.5
+      - openai-codex/gpt-5.6-sol
       - anthropic/claude-sonnet-5
-      - openai-codex/gpt-5.4
+      - openai-codex/gpt-5.6-terra
       - google-antigravity/claude-sonnet-4-6
       - openrouter/deepseek/deepseek-v4-pro
     task:
+      # spark first: separate, usually-idle Codex quota window — survives a Terra 429
+      - openai-codex/gpt-5.3-codex-spark
       - anthropic/claude-sonnet-5
-      - openai-codex/gpt-5.4
       - google-antigravity/claude-sonnet-4-6
       - openrouter/deepseek/deepseek-v4-pro
       - openrouter/deepseek/deepseek-v4-flash
     slow:
-      - openai-codex/gpt-5.4
+      - openai-codex/gpt-5.6-terra
       - anthropic/claude-opus-4-8
       - google-antigravity/gemini-3.1-pro
     advisor:
       - google-antigravity/gemini-3.1-pro
-      - openai-codex/gpt-5.4
+      - openai-codex/gpt-5.6-luna
     smol:
-      - openai-codex/gpt-5.4-mini
+      - openai-codex/gpt-5.6-luna
       - google-antigravity/gemini-3.1-flash-lite
       - openrouter/deepseek/deepseek-v4-flash
 
@@ -81,7 +86,7 @@ modelProviderOrder:
   - google-antigravity
   - openrouter
 
-# GPT-5.5 passively reviews every completed turn and interrupts on material risk.
+# GPT-5.6 Terra passively reviews every completed turn and interrupts on material risk.
 advisor:
   enabled: true
   subagents: false

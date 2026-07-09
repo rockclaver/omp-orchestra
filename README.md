@@ -19,30 +19,30 @@ omp supports a **model role** per job. This config exploits that fully:
 
 | Tier | Role(s) | Model | Job |
 |---|---|---|---|
-| 🧠 Frontier | `default` | `claude-fable-5` | Orchestrates, makes judgment calls (availability fallbacks: `opus-4-8` → `gpt-5.5`) |
-| 🧠 Frontier | `slow` | `gpt-5.5:xhigh` | `reviewer` agent — deep validation, **cross-vendor** from the orchestrator |
-| 🧠 Frontier | `advisor` | `gpt-5.5:high` | Passively reviews *every completed turn*, interrupts on material risk |
+| 🧠 Frontier | `default` | `claude-fable-5` | Orchestrates, makes judgment calls (availability fallbacks: `opus-4-8` → `gpt-5.6-sol`) |
+| 🧠 Frontier | `slow` | `gpt-5.6-sol:xhigh` | `reviewer` agent — deep validation, **cross-vendor** from the orchestrator |
+| 🧠 Frontier | `advisor` | `gpt-5.6-terra:high` | Passively reviews *every completed turn*, interrupts on material risk — Terra ≈ GPT-5.5 quality at half the per-turn cost |
 | 🏗️ Architect | `plan` | `claude-fable-5:high` | Plan mode + `plan` agent |
-| 🔨 Implementer | `task` | `gpt-5.3-codex-spark:medium` | `task` workers — coding-tuned, its own usually-idle quota window (mainline `gpt-5.x-codex` is gated off ChatGPT accounts) |
+| 🔨 Implementer | `task` | `gpt-5.6-terra:medium` | `task` workers — ~GPT-5.5-class coding at half cost; `gpt-5.3-codex-spark` (its own usually-idle quota window) is the first 429 fallback |
 | 🔨 Implementer | — | `claude-sonnet-5:medium` | `Tester` agent — tests authored by a **different vendor** than the implementer |
-| 🔍 Scout | `smol` | `gemini-3.5-flash` *(free)* | `explore` / `sonic` / `librarian` — high-volume reading |
+| 🔍 Scout | `smol` | `gemini-3.5-flash` *(free)* | `explore` / `sonic` / `librarian` — high-volume reading (paid fallback: `gpt-5.6-luna`) |
 | 🤖 Background | `tiny`, `commit` | `gemini flash-lite` *(free)* | Titles, memory, thinking-depth classification, commit messages |
 
 ```mermaid
 flowchart TD
     U[You] --> O["🧠 default — fable-5<br/>orchestrator"]
     O -->|plan mode| P["🏗️ plan — fable-5:high"]
-    O -->|delegates| T["🔨 task — gpt-5.3-codex-spark<br/>implementers"]
+    O -->|delegates| T["🔨 task — gpt-5.6-terra<br/>implementers"]
     O -->|delegates| S["🔍 smol — gemini-3.5-flash FREE<br/>explore / sonic / librarian"]
-    T --> R["🧠 slow — gpt-5.5:xhigh<br/>reviewer"]
+    T --> R["🧠 slow — gpt-5.6-sol:xhigh<br/>reviewer"]
     T --> TE["🔨 Tester — claude-sonnet-5<br/>cross-vendor tests"]
-    A["🧠 advisor — gpt-5.5:high<br/>reviews every turn"] -.->|concern / blocker| O
+    A["🧠 advisor — gpt-5.6-terra:high<br/>reviews every turn"] -.->|concern / blocker| O
     B["🤖 tiny + commit — flash-lite FREE<br/>titles · memory · commits"] -.-> O
 ```
 
 ### Why cross-vendor validation
 
-Same-vendor models share blind spots. Here, Claude's orchestration is reviewed by GPT-5.5; Codex's implementations are tested by Claude Sonnet. Vendor-correlated failure modes don't survive the pipeline.
+Same-vendor models share blind spots. Here, Claude's orchestration is reviewed by GPT-5.6; Codex's implementations are tested by Claude Sonnet. Vendor-correlated failure modes don't survive the pipeline.
 
 ## Frontier profiles
 
@@ -50,9 +50,9 @@ The frontier slice — orchestrator (`default`), architect (`plan`), deep valida
 
 | Profile | Orchestrator | Architect | Deep validator + advisor |
 |---|---|---|---|
-| `fable` *(default)* | `claude-fable-5` | `claude-fable-5:high` | `gpt-5.5` |
-| `opus` | `claude-opus-4-8` | `claude-opus-4-8:high` | `gpt-5.5` |
-| `codex` | `gpt-5.5` | `gpt-5.5:high` | `claude-opus-4-8` |
+| `fable` *(default)* | `claude-fable-5` | `claude-fable-5:high` | `gpt-5.6-sol` (advisor: `terra`) |
+| `opus` | `claude-opus-4-8` | `claude-opus-4-8:high` | `gpt-5.6-sol` (advisor: `terra`) |
+| `codex` | `gpt-5.6-sol` | `gpt-5.6-sol:high` | `claude-opus-4-8` |
 
 Swap by re-running the installer — idempotent, merge-safe, config backed up first:
 
@@ -68,7 +68,7 @@ Per-profile reference slices live in [`config/profiles/`](config/profiles/).
 Subscription plans fail at the margin: you hit the 5-hour window and either wait, buy a second account, or upgrade. This config attacks that three ways:
 
 1. **Role routing** keeps premium windows for premium work — scouts and background jobs never touch them.
-2. **`retry.fallbackChains`** (per role): on a 429, the session switches down a chain — e.g. `task` falls to `claude-sonnet-5`, then `gpt-5.4`, then free Antigravity Claude, then per-token DeepSeek (`$0.435/$0.87 per 1M`, effectively unlimited) — and reverts automatically when the cooldown expires.
+2. **`retry.fallbackChains`** (per role): on a 429, the session switches down a chain — e.g. `task` falls to `gpt-5.3-codex-spark` (its own usually-idle quota window), then `claude-sonnet-5`, then free Antigravity Claude, then per-token DeepSeek (`$0.435/$0.87 per 1M`, effectively unlimited) — and reverts automatically when the cooldown expires.
 3. **`defaultThinkingLevel: auto`** — a free tiny model classifies each prompt's difficulty, so trivial turns stop burning frontier high-thinking output tokens (the most expensive tokens you own).
 
 Measured on the author's telemetry before/after: the single biggest waste was a frontier model assigned to the `smol` scout role — 27% of all rate-limit errors came from that one misrouting.

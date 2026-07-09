@@ -1,29 +1,30 @@
 # omp-orchestra profile: opus
-# Frontier orchestrator: Claude Opus 4.8. Cross-vendor validation by GPT-5.5.
+# Frontier orchestrator: Claude Opus 4.8. Cross-vendor validation by GPT-5.6 Sol.
 # Apply: ./install.sh opus   (only these keys differ between profiles)
 
 modelRoles:
-  # Orchestrator: Opus frontier; GPT-5.5 takes over if Anthropic login is absent
-  default: anthropic/claude-opus-4-8, openai-codex/gpt-5.5
+  # Orchestrator: Opus frontier; GPT-5.6 Sol takes over if Anthropic login is absent
+  default: anthropic/claude-opus-4-8, openai-codex/gpt-5.6-sol
   # Architect — plan agent + plan mode
-  plan: anthropic/claude-opus-4-8:high, openai-codex/gpt-5.5:high
-  # Deep validator — reviewer agent: frontier Codex, cross-vendor from the orchestrator
-  slow: openai-codex/gpt-5.5:xhigh
-  # Per-turn second opinion, cross-vendor from the orchestrator
-  advisor: openai-codex/gpt-5.5:high
+  plan: anthropic/claude-opus-4-8:high, openai-codex/gpt-5.6-sol:high
+  # Deep validator — reviewer agent: frontier Codex (Sol), cross-vendor from the orchestrator
+  slow: openai-codex/gpt-5.6-sol:xhigh
+  # Per-turn second opinion, cross-vendor from the orchestrator (Terra ~= GPT-5.5
+  # review quality at half the per-turn cost)
+  advisor: openai-codex/gpt-5.6-terra:high
 
 retry:
   fallbackChains:
     default:
-      - openai-codex/gpt-5.5
+      - openai-codex/gpt-5.6-sol
       - anthropic/claude-sonnet-5
-      - openai-codex/gpt-5.4
+      - openai-codex/gpt-5.6-terra
       - google-antigravity/claude-sonnet-4-6
       - openrouter/deepseek/deepseek-v4-pro
     slow:
-      - openai-codex/gpt-5.4
+      - openai-codex/gpt-5.6-terra
       - anthropic/claude-opus-4-8
       - google-antigravity/gemini-3.1-pro
     advisor:
       - google-antigravity/gemini-3.1-pro
-      - openai-codex/gpt-5.4
+      - openai-codex/gpt-5.6-luna
