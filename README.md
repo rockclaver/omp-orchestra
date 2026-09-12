@@ -1,130 +1,101 @@
 # omp-orchestra
 
-**Cost-tiered model orchestration for [Oh My Pi](https://github.com/oh-my-pi) (`omp`).**
+**Tier-based model routing for [Oh My Pi](https://github.com/oh-my-pi) (`omp`).** Concrete model ids live in one small tier table, so swapping the smartest model is a one-line change. Cheap workers handle volume; frontier models handle decisions; `verify.sh` structurally enforces cross-vendor validation.
 
-Frontier models orchestrate, plan, and validate. Cheap coding models implement. Free models scout. Every quota wall degrades gracefully instead of stalling your session.
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/rockclaver/omp-orchestra/main/install.sh | sh              # fable profile (default)
-curl -fsSL https://raw.githubusercontent.com/rockclaver/omp-orchestra/main/install.sh | sh -s -- opus   # or: codex
-```
-
-The installer only uses `omp config set` (schema-validated, merge-safe) — your theme, keybindings, and approvals are untouched, and your previous `config.yml` is backed up first. No secrets are read or written. Re-run with a different [profile](#frontier-profiles) at any time to swap the frontier.
-
-## Philosophy
-
-One frontier model doing everything is the most expensive and *slowest* way to run an agent harness: it burns premium quota on file scouting, commit messages, and session titles, then rate-limits right when you need it to think.
-
-omp supports a **model role** per job. This config exploits that fully:
-
-| Tier | Role(s) | Model | Job |
-|---|---|---|---|
-| 🧠 Frontier | `default` | `claude-fable-5` | Orchestrates, makes judgment calls (availability fallbacks: `opus-4-8` → `gpt-5.6-sol`) |
-| 🧠 Frontier | `slow` | `gpt-5.6-sol:xhigh` | `reviewer` agent — deep validation, **cross-vendor** from the orchestrator |
-| 🧠 Frontier | `advisor` | `gpt-5.6-terra:high` | Passively reviews *every completed turn*, interrupts on material risk — Terra ≈ GPT-5.5 quality at half the per-turn cost |
-| 🏗️ Architect | `plan` | `claude-fable-5:high` | Plan mode + `plan` agent |
-| 🔨 Implementer | `task` | `gpt-5.6-terra:medium` | `task` workers — ~GPT-5.5-class coding at half cost; `gpt-5.3-codex-spark` (its own usually-idle quota window) is the first 429 fallback |
-| 🔨 Implementer | — | `claude-sonnet-5:medium` | `Tester` agent — tests authored by a **different vendor** than the implementer |
-| 🔍 Scout | `smol` | `gemini-3.5-flash` *(free)* | `explore` / `sonic` / `librarian` — high-volume reading (paid fallback: `gpt-5.6-luna`) |
-| 🤖 Background | `tiny`, `commit` | `gemini flash-lite` *(free)* | Titles, memory, thinking-depth classification, commit messages |
-
-```mermaid
-flowchart TD
-    U[You] --> O["🧠 default — fable-5<br/>orchestrator"]
-    O -->|plan mode| P["🏗️ plan — fable-5:high"]
-    O -->|delegates| T["🔨 task — gpt-5.6-terra<br/>implementers"]
-    O -->|delegates| S["🔍 smol — gemini-3.5-flash FREE<br/>explore / sonic / librarian"]
-    T --> R["🧠 slow — gpt-5.6-sol:xhigh<br/>reviewer"]
-    T --> TE["🔨 Tester — claude-sonnet-5<br/>cross-vendor tests"]
-    A["🧠 advisor — gpt-5.6-terra:high<br/>reviews every turn"] -.->|concern / blocker| O
-    B["🤖 tiny + commit — flash-lite FREE<br/>titles · memory · commits"] -.-> O
-```
-
-### Why cross-vendor validation
-
-Same-vendor models share blind spots. Here, Claude's orchestration is reviewed by GPT-5.6; Codex's implementations are tested by Claude Sonnet. Vendor-correlated failure modes don't survive the pipeline.
-
-## Frontier profiles
-
-The frontier slice — orchestrator (`default`), architect (`plan`), deep validator (`slow`), per-turn `advisor`, and their 429 fallback chains — is a **profile**. Validators always sit on a different vendor than the orchestrator. Everything else (implementers, scouts, background tiers, quota chains for them) is shared:
-
-| Profile | Orchestrator | Architect | Deep validator + advisor |
-|---|---|---|---|
-| `fable` *(default)* | `claude-fable-5` | `claude-fable-5:high` | `gpt-5.6-sol` (advisor: `terra`) |
-| `opus` | `claude-opus-4-8` | `claude-opus-4-8:high` | `gpt-5.6-sol` (advisor: `terra`) |
-| `codex` | `gpt-5.6-sol` | `gpt-5.6-sol:high` | `claude-opus-4-8` |
-
-Swap by re-running the installer — idempotent, merge-safe, config backed up first:
+## Install
 
 ```sh
-./install.sh opus                        # or: fable, codex
-OMP_ORCHESTRA_PROFILE=codex ./install.sh # env var works too (e.g. for curl | sh)
+curl -fsSL https://raw.githubusercontent.com/rockclaver/omp-orchestra/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/rockclaver/omp-orchestra/main/install.sh | sh -s -- codex
+OMP_ORCHESTRA_PROFILE=codex curl -fsSL https://raw.githubusercontent.com/rockclaver/omp-orchestra/main/install.sh | sh
 ```
 
-Per-profile reference slices live in [`config/profiles/`](config/profiles/).
+Profiles are `claude` (default) and `codex`. The installer only uses `omp config set`, backs up `config.yml`, and writes `WATCHDOG.md`.
 
-## Quota resilience (the part that actually saves you money)
+## Why the orchestrator is NOT the frontier model
 
-Subscription plans fail at the margin: you hit the 5-hour window and either wait, buy a second account, or upgrade. This config attacks that three ways:
+On subscription plans, cost is the quota window, not a per-token price. The orchestrator resends full history every turn, making it the highest-volume session. Frontier capacity belongs in `plan` (architect) and `slow` (reviewer): short, high-leverage jobs. The advisor uses a strong mid-tier model. Promote a model into a tier only for better quality in the same quota class, never because it is novel.
 
-1. **Role routing** keeps premium windows for premium work — scouts and background jobs never touch them.
-2. **`retry.fallbackChains`** (per role): on a 429, the session switches down a chain — e.g. `task` falls to `gpt-5.3-codex-spark` (its own usually-idle quota window), then `claude-sonnet-5`, then free Antigravity Claude, then per-token DeepSeek (`$0.435/$0.87 per 1M`, effectively unlimited) — and reverts automatically when the cooldown expires.
-3. **`defaultThinkingLevel: auto`** — a free tiny model classifies each prompt's difficulty, so trivial turns stop burning frontier high-thinking output tokens (the most expensive tokens you own).
+## Routing table
 
-Measured on the author's telemetry before/after: the single biggest waste was a frontier model assigned to the `smol` scout role — 27% of all rate-limit errors came from that one misrouting.
+| Tier | `claude` profile value | `codex` profile value | Job |
+|---|---|---|---|
+| `frontier_a` | `anthropic/claude-fable-5-1, anthropic/claude-opus-4-8` | `openai-codex/gpt-6-astra, openai-codex/gpt-5.6-sol` | Primary frontier side |
+| `frontier_b` | `openai-codex/gpt-6-astra, openai-codex/gpt-5.6-sol` | `anthropic/claude-fable-5-1, anthropic/claude-opus-4-8` | Independent frontier side |
+| `strong_a` | `anthropic/claude-sonnet-5` | `openai-codex/gpt-5.6-terra` | Primary strong side |
+| `strong_b` | `openai-codex/gpt-5.6-terra` | `anthropic/claude-sonnet-5` | Independent strong side |
+| `worker` | `openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5` | `openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5` | Implementer |
+| `tester` | `anthropic/claude-sonnet-5, openai-codex/gpt-5.6-luna` | `anthropic/claude-sonnet-5, openai-codex/gpt-5.6-luna` | Tester agent |
+| `scout` | `google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna` | `google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna` | High-volume exploration |
+| `micro` | `google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite` | `google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite` | Background work |
 
-## What the installer sets
+| Role | Mapping | Job |
+|---|---|---|
+| `default` | `@strong_a:medium` | Orchestrator |
+| `plan` | `@frontier_a:high` | Architect |
+| `slow` | `@frontier_b:xhigh` | Reviewer |
+| `advisor` | `@strong_b:high` | Per-turn second opinion |
+| `task` | `@worker:medium` | Implementer |
+| `smol` | `@scout` | Scout |
+| `tiny` | `@micro` | Titles and classification |
+| `commit` | `@micro` | Commit messages |
+| `designer` | `@strong_a:medium` | Design work |
+| `vision` | `google-antigravity/gemini-3.1-pro, @strong_a` | Vision work |
 
-| Key | Value |
+## Adopting a new model
+
+Edit one tier line in `install.sh`, or make a live change with `omp config set modelRoles.<tier> ...`, then run `./verify.sh`. `~provider/x-latest` aliases exist only on OpenRouter; subscription providers require concrete ids.
+
+## Fallback chains
+
+Chains are per-role and contain concrete ids: omp does not accept `@aliases` in chains, and an unknown entry silently breaks the role. They preserve vendors where needed, so a reviewer remains on the other vendor after a 429. Cheap `tiny`, `commit`, and `smol` roles never fall to frontier or strong models. `retry.usageAwareFallback` pre-empts the quota wall with a 10% reserve.
+
+| Role | Fallback chain |
 |---|---|
-| `modelRoles` | The routing table above (comma lists = availability fallbacks) |
-| `retry.fallbackChains` | Per-role 429 degradation chains |
-| `defaultThinkingLevel` | `auto` |
-| `modelProviderOrder` | Subscription/free providers before per-token ones |
-| `advisor.enabled` / `syncBacklog` | `true` / `3` — bounded catch-up, no stalls |
-| `task.agentModelOverrides` | `Tester` → Claude (cross-vendor) |
-| `task.enableLsp` | Workers get live diagnostics |
-| `task.eager` | `preferred` — bias the orchestrator toward delegating |
-| `task.showResolvedModelBadge` | See which model each subagent actually ran on |
-| `WATCHDOG.md` | Advisor review priorities tuned for cheap-implementer failure modes |
+| `default`, `designer` | `claude`: `google-antigravity/claude-sonnet-4-6` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `openai-codex/gpt-5.6-luna` → `google-antigravity/gemini-3.1-pro` → `openrouter/deepseek/deepseek-v4-pro` |
+| `plan` | `claude`: `google-antigravity/claude-opus-4-6` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `openai-codex/gpt-5.6-sol` → `openai-codex/gpt-5.6-terra` → `openrouter/deepseek/deepseek-v4-pro` |
+| `slow` | `claude`: `openai-codex/gpt-5.6-sol` → `openai-codex/gpt-5.6-terra` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `google-antigravity/claude-opus-4-6` → `openrouter/deepseek/deepseek-v4-pro` |
+| `advisor` | `claude`: `openai-codex/gpt-5.6-luna` → `google-antigravity/gemini-3.1-pro` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `google-antigravity/claude-sonnet-4-6` → `openrouter/deepseek/deepseek-v4-pro` |
+| `task` | `openai-codex/gpt-5.6-luna` → `openrouter/deepseek/deepseek-v4-pro` → `openrouter/deepseek/deepseek-v4-flash` |
+| `smol` | `google-antigravity/gemini-3.1-flash-lite` → `openai-codex/gpt-5.6-luna` → `openrouter/deepseek/deepseek-v4-flash` |
+| `tiny`, `commit` | `google-antigravity/gemini-3.1-flash-lite` → `openrouter/deepseek/deepseek-v4-flash` |
+| `vision` | `anthropic/claude-sonnet-5` → `openrouter/deepseek/deepseek-v4-pro` |
 
-Reference copies live in [`config/`](config/); `install.sh` is canonical.
+## Invariants and verification
 
-## Verifying your routing actually works
-
-Availability fallbacks only check **provider credentials**, and retry chains only trip on **429/5xx**. A model that is plan-gated or tier-blocked fails with `invalid_request_error` and nothing falls back — the role hard-fails. (Observed live: mainline `gpt-5.x-codex` gated off ChatGPT accounts; Fable tier-blocked per credential.)
+- `vendor(default) == vendor(plan) != vendor(slow)`.
+- `vendor(default) != vendor(advisor)`.
+- `vendor(task) != vendor(Tester override)`.
+- No chain entry of `tiny`/`commit`/`smol` may be an `anthropic/` or `openai-codex/` frontier or strong model; their entries are limited to `google-antigravity/*`, `openai-codex/gpt-5.6-luna`, and `openrouter/*`.
 
 ```sh
-./verify.sh          # live-probe every model in modelRoles + fallback chains
-./verify.sh task     # probe a single role
+./verify.sh
+./verify.sh --static
+./verify.sh --no-drift
+./verify.sh --profile codex
+./verify.sh task
 ```
 
-Non-zero exit and a `FAIL:` line name the dead entry; models from providers you haven't connected print `skip:` (providers are optional by design — entitlement errors like "not authorized"/plan-gating still FAIL). Run it after any provider plan change, model deprecation, or access incident.
-
+The drift check compares `install.sh --print` with live config, so the repository cannot silently diverge from the install. The live probe runs each model with `retry.modelFallback` off, so a dead primary cannot answer from its chain and pass. Role names filter the probe.
 
 ## Requirements
 
-- [omp](https://github.com/oh-my-pi) installed
-- Provider credentials (any subset works — role chains skip providers you haven't connected):
-  - **Anthropic** — Claude subscription (`/login` in omp)
-  - **OpenAI Codex** — ChatGPT plan (`/login`)
-  - **Google Antigravity** — free tier (`/login`) — carries the scout + background tiers
-  - **OpenRouter** — API key — pennies-per-month overflow absorber (DeepSeek)
+- [omp](https://github.com/oh-my-pi) installed.
+- Credentials for Anthropic, OpenAI Codex, Google Antigravity, and optionally OpenRouter.
+- `slow` and `advisor` hard-fail without side-B credentials for the selected profile. `tiny`, `commit`, and `scout` need Google Antigravity or fall to their chains.
 
 ## Customization
 
-- Different frontier? Swap [profiles](#frontier-profiles): `./install.sh opus`. For a model outside the built-in profiles, edit `~/.omp/agent/config.yml` → `modelRoles.default`.
-- More/less advisor: `omp config set advisor.enabled false`, or tune `advisor.syncBacklog` (`off`/`1`/`3`/`5`).
-- Per-project overrides: drop a `.omp/config.yml` in any repo — same keys, project-scoped.
-- Deeper thinking by default: `omp config set defaultThinkingLevel high`.
+- Swap a tier with one line in `install.sh`, then run `./verify.sh`.
+- Disable the advisor: `omp config set advisor.enabled false`.
+- Add `.omp/config.yml` for project-specific overrides.
 
 ## Uninstall / restore
 
-The installer backs up your previous config next to the live one:
+Restore the backup created next to the live config:
 
 ```sh
 AGENT_DIR="$(omp config path)"
-ls "$AGENT_DIR"/config.yml.orchestra-bak.*   # pick one
 cp "$AGENT_DIR/config.yml.orchestra-bak.<stamp>" "$AGENT_DIR/config.yml"
 ```
 
