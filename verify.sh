@@ -168,18 +168,22 @@ check_aliases
 check_vendor_relation 'default vendor equals plan' @default = @plan
 check_vendor_relation 'default vendor differs from slow' @default '!' @slow
 check_vendor_relation 'default vendor differs from advisor' @default '!' @advisor
+# The worker pool alternates spawns between lane _a and lane _b, so each pair
+# must start on different vendors.
+check_vendor_relation 'worker lanes start on different vendors' @worker_a '!' @worker_b
+check_vendor_relation 'executor lanes start on different vendors' @executor_a '!' @executor_b
 # Tester and sonic are the required agent-model overrides.
-tester=$(override_value Tester)
-sonic=$(override_value sonic)
-if [ -z "$tester" ]; then
-  fail 'task vendor differs from Tester override (missing Tester override)'
+if [ -n "$(override_value Tester)" ]; then printf 'ok: Tester override present\n'; else fail 'Tester override present'; fi
+if [ "$(override_value sonic)" = '@executor_a:medium' ]; then
+  printf 'ok: sonic override routes through the executor pool\n'
 else
-  check_vendor_relation 'task vendor differs from Tester override' @task '!' "$tester"
+  fail "sonic override routes through the executor pool (got '$(override_value sonic)')"
 fi
-if [ -z "$sonic" ]; then
-  fail 'Tester override vendor differs from sonic override (missing sonic override)'
-elif [ -n "$tester" ]; then
-  check_vendor_relation 'Tester override vendor differs from sonic override' "$tester" '!' "$sonic"
+EXTENSION="$(omp config path)/extensions/omp-orchestra-worker-pool.ts"
+if [ -f "$EXTENSION" ]; then
+  printf 'ok: worker pool extension installed\n'
+else
+  fail "worker pool extension installed ($EXTENSION missing)"
 fi
 check_cheap_chains
 
@@ -212,6 +216,12 @@ else
       fi
     fi
   done < "$TMP/expected"
+  sh "$INSTALL" --print-extension > "$TMP/extension"
+  if [ -f "$EXTENSION" ] && cmp -s "$TMP/extension" "$EXTENSION"; then
+    printf 'ok: drift worker pool extension\n'
+  else
+    fail 'drift worker pool extension'
+  fi
 fi
 
 printf '==> live probe\n'

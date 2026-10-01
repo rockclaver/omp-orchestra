@@ -1,6 +1,6 @@
 # omp-orchestra
 
-**Tier-based model routing for [Oh My Pi](https://github.com/oh-my-pi) (`omp`).** Concrete model ids live in one small tier table, so swapping the smartest model is a one-line change. Anthropic workers handle implementation volume, with GPT chains behind them; frontier models handle decisions; `verify.sh` structurally enforces cross-vendor validation.
+**Tier-based model routing for [Oh My Pi](https://github.com/oh-my-pi) (`omp`).** Concrete model ids live in one small tier table, so swapping the smartest model is a one-line change. A shared Anthropic + OpenAI worker pool handles implementation volume; frontier models handle decisions; `verify.sh` structurally enforces cross-vendor validation.
 
 ## Install
 
@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/rockclaver/omp-orchestra/main/insta
 OMP_ORCHESTRA_PROFILE=codex curl -fsSL https://raw.githubusercontent.com/rockclaver/omp-orchestra/main/install.sh | sh
 ```
 
-Profiles are `claude` (default) and `codex`. The installer only uses `omp config set`, backs up `config.yml`, and writes `WATCHDOG.md`.
+Profiles are `claude` (default) and `codex`. The installer only uses `omp config set`, backs up `config.yml`, and writes `WATCHDOG.md` plus the worker-pool extension `extensions/omp-orchestra-worker-pool.ts`.
 
 ## Why the orchestrator is NOT the frontier model
 
@@ -24,9 +24,11 @@ On subscription plans, cost is the quota window, not a per-token price. The orch
 | `frontier_b` | `openai-codex/gpt-6-astra, openai-codex/gpt-5.6-sol` | `anthropic/claude-fable-5-1, anthropic/claude-opus-4-8` | Independent frontier side |
 | `strong_a` | `anthropic/claude-sonnet-5-5` | `openai-codex/gpt-5.6-terra` | Primary strong side |
 | `strong_b` | `openai-codex/gpt-5.6-terra` | `anthropic/claude-sonnet-5-5` | Independent strong side |
-| `worker` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-terra, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash` | same | Implementer (`task` agent) |
-| `executor` | `anthropic/claude-haiku-4-5, openai-codex/gpt-5.6-luna, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash` | same | Fast mechanical executor (`sonic` agent) |
-| `tester` | `openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5-5` | `openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5-5` | Tester agent |
+| `worker_a` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-terra, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash` | same | Implementer pool, Anthropic lane (`task` agent) |
+| `worker_b` | `openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash` | same | Implementer pool, OpenAI lane (`task` agent) |
+| `executor_a` | `anthropic/claude-haiku-4-5, openai-codex/gpt-5.6-luna, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash` | same | Executor pool, Anthropic lane (`sonic` agent) |
+| `executor_b` | `openai-codex/gpt-5.6-luna, anthropic/claude-haiku-4-5, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash` | same | Executor pool, OpenAI lane (`sonic` agent) |
+| `tester` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-luna` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-luna` | Tester agent |
 | `scout` | `google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna` | `google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna` | High-volume exploration |
 | `micro` | `google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite` | `google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite` | Background work |
 
@@ -36,14 +38,23 @@ On subscription plans, cost is the quota window, not a per-token price. The orch
 | `plan` | `@frontier_a:high` | Architect |
 | `slow` | `@frontier_b:xhigh` | Reviewer |
 | `advisor` | `@strong_b:high` | Per-turn second opinion |
-| `task` | `@worker:medium` | Implementer |
+| `task` | `@worker_a:medium` | Implementer (pooled, see below) |
 | `smol` | `@scout` | Scout |
 | `tiny` | `@micro` | Titles and classification |
 | `commit` | `@micro` | Commit messages |
 | `designer` | `@strong_a:medium` | Design work |
 | `vision` | `google-antigravity/gemini-3.1-pro, @strong_a` | Vision work |
 
-Agent overrides (`task.agentModelOverrides`): `Tester` → `@tester:medium`, `sonic` → `@executor:medium`. Role values use the first available entry, so workers run on Anthropic whenever it is logged in.
+Agent overrides (`task.agentModelOverrides`): `Tester` → `@tester:medium`, `sonic` → `@executor_a:medium`.
+
+## Worker pool
+
+omp resolves a role to its first available model, so one role alone can't spread workers across vendors. The installed extension `omp-orchestra-worker-pool.ts` hooks `before_subagent_spawn` and alternates each pooled spawn between lane `_a` (Anthropic-first) and lane `_b` (OpenAI-first):
+
+- `task` agents alternate `@worker_a` / `@worker_b`: a batch of four runs two `claude-sonnet-5-5` and two `gpt-5.6-terra` workers at once.
+- `sonic` executors alternate `@executor_a` / `@executor_b`: `claude-haiku-4-5` and `gpt-5.6-luna`.
+- The rotation is per agent type and process-wide, and it keeps the role's thinking suffix (`:medium`). Spawns with an explicit model (for example `^`-tagged `m1` agents) carry no role and are left alone.
+- Without the extension, every pooled spawn takes lane `_a`.
 
 ## Adopting a new model
 
@@ -53,7 +64,7 @@ Edit one tier line in `install.sh`, or make a live change with `omp config set m
 
 Chains are per-role and contain concrete ids: omp does not accept `@aliases` in chains, and an unknown entry silently breaks the role. They preserve vendors where needed, so a reviewer remains on the other vendor after a 429. Cheap `tiny`, `commit`, and `smol` roles never fall to frontier or strong models. `retry.usageAwareFallback` pre-empts the quota wall with a 10% reserve.
 
-Subagents are different: when an agent's alias expands to several models, omp falls back only through the rest of that list and ignores `retry.fallbackChains.<role>`. The `worker` and `executor` tiers therefore carry their full fallback sequence inline (Anthropic → GPT → DeepSeek) and have no chain entry.
+Subagents are different: when an agent's alias expands to several models, omp falls back only through the rest of that list and ignores `retry.fallbackChains.<role>`. Each worker and executor lane therefore carries its full fallback sequence inline, crossing to the other vendor and then DeepSeek, and has no chain entry.
 
 | Role | Fallback chain |
 |---|---|
@@ -69,7 +80,8 @@ Subagents are different: when an agent's alias expands to several models, omp fa
 
 - `vendor(default) == vendor(plan) != vendor(slow)`.
 - `vendor(default) != vendor(advisor)`.
-- `vendor(task) != vendor(Tester override)` and `vendor(Tester override) != vendor(sonic override)`, checked on primary routes: Anthropic implements, GPT tests. Both tiers list the other vendor as a fallback, so the split does not hold during failover.
+- `vendor(worker_a) != vendor(worker_b)` and `vendor(executor_a) != vendor(executor_b)`, so the pool always spans both vendors. Lanes fall back to the other vendor, so during failover both lanes can land on one vendor.
+- The `sonic` override is `@executor_a:medium` (the role the pool keys on), and the worker-pool extension is installed.
 - No chain entry of `tiny`/`commit`/`smol` may be an `anthropic/` or `openai-codex/` frontier or strong model; their entries are limited to `google-antigravity/*`, `openai-codex/gpt-5.6-luna`, and `openrouter/*`.
 
 ```sh
@@ -80,7 +92,7 @@ Subagents are different: when an agent's alias expands to several models, omp fa
 ./verify.sh task
 ```
 
-The drift check compares `install.sh --print` with live config, so the repository cannot silently diverge from the install. The live probe runs each model with `retry.modelFallback` off, so a dead primary cannot answer from its chain and pass. Role names filter the probe.
+The drift check compares `install.sh --print` with live config and `install.sh --print-extension` with the installed extension, so the repository cannot silently diverge from the install. The live probe runs each model with `retry.modelFallback` off, so a dead primary cannot answer from its chain and pass. Role names filter the probe.
 
 ## Requirements
 
@@ -101,6 +113,7 @@ Restore the backup created next to the live config:
 ```sh
 AGENT_DIR="$(omp config path)"
 cp "$AGENT_DIR/config.yml.orchestra-bak.<stamp>" "$AGENT_DIR/config.yml"
+rm "$AGENT_DIR/extensions/omp-orchestra-worker-pool.ts"
 ```
 
 ## License

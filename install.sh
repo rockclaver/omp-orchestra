@@ -2,7 +2,8 @@
 # omp-orchestra — tiered model orchestration for Oh My Pi (omp)
 #
 # Concrete model ids live only in the frontier_a, frontier_b, strong_a,
-# strong_b, worker, executor, tester, scout, and micro tiers below.
+# strong_b, worker_a, worker_b, executor_a, executor_b, tester, scout, and
+# micro tiers below.
 # To adopt a new model, edit one tier line instead of every functional role.
 # Fallback chains must remain concrete: omp does not accept @aliases there,
 # and an unknown entry silently breaks the role.
@@ -21,6 +22,9 @@ for ARG in "$@"; do
   case "$ARG" in
     --print)
       PRINT=1
+      ;;
+    --print-extension)
+      PRINT=2
       ;;
     claude|codex)
       [ "$PROFILE_ARG" -eq 0 ] || fail "multiple profiles specified"
@@ -76,15 +80,19 @@ case "$PROFILE" in
     ;;
 esac
 
-# Workers split by agent: the bundled `task` agent runs @worker and the `sonic`
-# fast executor runs @executor, both Anthropic-first. Tester stays on the other
-# vendor so implementation and tests are cross-checked.
+# Shared worker pool. The worker-pool extension written below alternates each
+# pooled spawn between an Anthropic-first lane (_a) and an OpenAI-first lane
+# (_b): four parallel `task` spawns run two Sonnet and two Terra workers, and
+# `sonic` executors alternate Haiku and Luna. Without the extension every spawn
+# takes lane _a.
 # A subagent whose alias expands to several models falls back only through the
 # rest of that list; retry.fallbackChains.<role> is not consulted. Keep each
-# worker tier's full fallback sequence inline.
-WORKER="anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-terra, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash"
-EXECUTOR="anthropic/claude-haiku-4-5, openai-codex/gpt-5.6-luna, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash"
-TESTER="openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5-5"
+# lane's full fallback sequence inline.
+WORKER_A="anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-terra, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash"
+WORKER_B="openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash"
+EXECUTOR_A="anthropic/claude-haiku-4-5, openai-codex/gpt-5.6-luna, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash"
+EXECUTOR_B="openai-codex/gpt-5.6-luna, anthropic/claude-haiku-4-5, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash"
+TESTER="anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-luna"
 SCOUT="google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna"
 MICRO="google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite"
 CHAIN_SMOL='["google-antigravity/gemini-3.1-flash-lite","openai-codex/gpt-5.6-luna","openrouter/deepseek/deepseek-v4-flash"]'
@@ -93,7 +101,7 @@ CHAIN_COMMIT='["google-antigravity/gemini-3.1-flash-lite","openrouter/deepseek/d
 CHAIN_VISION='["anthropic/claude-sonnet-5-5","openrouter/deepseek/deepseek-v4-pro"]'
 
 # Build each config value once. Keep JSON compact: --print is a machine contract.
-V_MODEL_ROLES='{"frontier_a":"'"$SIDE_A_FRONTIER"'","frontier_b":"'"$SIDE_B_FRONTIER"'","strong_a":"'"$SIDE_A_STRONG"'","strong_b":"'"$SIDE_B_STRONG"'","worker":"'"$WORKER"'","executor":"'"$EXECUTOR"'","tester":"'"$TESTER"'","scout":"'"$SCOUT"'","micro":"'"$MICRO"'","default":"@strong_a:medium","plan":"@frontier_a:high","slow":"@frontier_b:xhigh","advisor":"@strong_b:high","task":"@worker:medium","smol":"@scout","tiny":"@micro","commit":"@micro","designer":"@strong_a:medium","vision":"google-antigravity/gemini-3.1-pro, @strong_a"}'
+V_MODEL_ROLES='{"frontier_a":"'"$SIDE_A_FRONTIER"'","frontier_b":"'"$SIDE_B_FRONTIER"'","strong_a":"'"$SIDE_A_STRONG"'","strong_b":"'"$SIDE_B_STRONG"'","worker_a":"'"$WORKER_A"'","worker_b":"'"$WORKER_B"'","executor_a":"'"$EXECUTOR_A"'","executor_b":"'"$EXECUTOR_B"'","tester":"'"$TESTER"'","scout":"'"$SCOUT"'","micro":"'"$MICRO"'","default":"@strong_a:medium","plan":"@frontier_a:high","slow":"@frontier_b:xhigh","advisor":"@strong_b:high","task":"@worker_a:medium","smol":"@scout","tiny":"@micro","commit":"@micro","designer":"@strong_a:medium","vision":"google-antigravity/gemini-3.1-pro, @strong_a"}'
 V_MODEL_PROVIDER_ORDER='["anthropic","openai-codex","google-antigravity","openrouter"]'
 V_DEFAULT_THINKING_LEVEL='auto'
 V_CHAINS='{"default":'"$SIDE_A_CHAIN_STRONG"',"designer":'"$SIDE_A_CHAIN_STRONG"',"plan":'"$SIDE_A_CHAIN_FRONTIER"',"slow":'"$SIDE_B_CHAIN_FRONTIER"',"advisor":'"$SIDE_B_CHAIN_STRONG"',"smol":'"$CHAIN_SMOL"',"tiny":'"$CHAIN_TINY"',"commit":'"$CHAIN_COMMIT"',"vision":'"$CHAIN_VISION"'}'
@@ -102,10 +110,41 @@ V_USAGE_RESERVE_PCT='10'
 V_USAGE_RESERVE_POLICY='auto'
 V_ADVISOR_ENABLED='true'
 V_ADVISOR_SYNC_BACKLOG='3'
-V_TASK_AGENT_MODEL_OVERRIDES='{"Tester":"@tester:medium","sonic":"@executor:medium"}'
+V_TASK_AGENT_MODEL_OVERRIDES='{"Tester":"@tester:medium","sonic":"@executor_a:medium"}'
 V_TASK_SHOW_RESOLVED_MODEL_BADGE='true'
 V_TASK_ENABLE_LSP='true'
 V_TASK_EAGER='preferred'
+
+# Pool routing lives in omp's before_subagent_spawn hook. POOLS maps the
+# spawn's pre-expansion role (`task` for the bundled task agent, `executor_a`
+# for the sonic override) to the lane roles it rotates through. Spawns with an
+# explicit model carry no role and keep their model.
+worker_pool_extension() {
+  cat <<'EXTENSION'
+// omp-orchestra worker pool. Written by omp-orchestra install.sh; local edits are overwritten.
+import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+
+const POOLS: Readonly<Record<string, readonly string[]>> = {
+	task: ["worker_a", "worker_b"],
+	executor_a: ["executor_a", "executor_b"],
+};
+const THINKING_SUFFIX = /:(off|minimal|low|medium|high|xhigh|max|auto)$/;
+const nextLane = new Map<string, number>();
+
+export default function workerPool(pi: ExtensionAPI) {
+	pi.on("before_subagent_spawn", event => {
+		const role = event.modelRole;
+		const lanes = role === undefined ? undefined : POOLS[role];
+		if (role === undefined || lanes === undefined) return;
+		const index = nextLane.get(role) ?? 0;
+		nextLane.set(role, (index + 1) % lanes.length);
+		const lane = lanes[index];
+		const suffix = event.patterns[0]?.match(THINKING_SUFFIX)?.[0] ?? "";
+		return { model: `@${lane}${suffix}`, note: `worker pool: ${lane}` };
+	});
+}
+EXTENSION
+}
 
 apply_or_print() {
   for KEY in modelRoles modelProviderOrder defaultThinkingLevel retry.fallbackChains retry.usageAwareFallback retry.usageReservePct retry.usageReservePolicy advisor.enabled advisor.syncBacklog task.agentModelOverrides task.showResolvedModelBadge task.enableLsp task.eager; do
@@ -135,6 +174,10 @@ apply_or_print() {
 
 if [ "$PRINT" -eq 1 ]; then
   apply_or_print
+  exit 0
+fi
+if [ "$PRINT" -eq 2 ]; then
+  worker_pool_extension
   exit 0
 fi
 
@@ -177,6 +220,9 @@ Especially watch for:
 Interrupt (`concern`/`blocker`) only for material risk or wasted-work trajectories. Otherwise stay silent — silence is the correct expression of "no concerns".
 WATCHDOG
 say "    ok: WATCHDOG.md"
+mkdir -p "$AGENT_DIR/extensions"
+worker_pool_extension > "$AGENT_DIR/extensions/omp-orchestra-worker-pool.ts"
+say "    ok: extensions/omp-orchestra-worker-pool.ts"
 
 say ""
 say "==> Done. New sessions pick this up automatically."
