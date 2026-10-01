@@ -2,7 +2,7 @@
 # omp-orchestra — tiered model orchestration for Oh My Pi (omp)
 #
 # Concrete model ids live only in the frontier_a, frontier_b, strong_a,
-# strong_b, worker, tester, scout, and micro tiers below.
+# strong_b, worker, executor, tester, scout, and micro tiers below.
 # To adopt a new model, edit one tier line instead of every functional role.
 # Fallback chains must remain concrete: omp does not accept @aliases there,
 # and an unknown entry silently breaks the role.
@@ -45,7 +45,7 @@ fi
 
 # ── Tier table ────────────────────────────────────────────────────────────────
 ANTH_FRONTIER="anthropic/claude-fable-5-1, anthropic/claude-opus-4-8"
-ANTH_STRONG="anthropic/claude-sonnet-5"
+ANTH_STRONG="anthropic/claude-sonnet-5-5"
 ANTH_CHAIN_FRONTIER='["google-antigravity/claude-opus-4-6","openrouter/deepseek/deepseek-v4-pro"]'
 ANTH_CHAIN_STRONG='["google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro"]'
 OAI_FRONTIER="openai-codex/gpt-6-astra, openai-codex/gpt-5.6-sol"
@@ -76,27 +76,33 @@ case "$PROFILE" in
     ;;
 esac
 
-WORKER="openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5"
-TESTER="anthropic/claude-sonnet-5, openai-codex/gpt-5.6-luna"
+# Workers split by agent: the bundled `task` agent runs @worker and the `sonic`
+# fast executor runs @executor, both Anthropic-first. Tester stays on the other
+# vendor so implementation and tests are cross-checked.
+# A subagent whose alias expands to several models falls back only through the
+# rest of that list; retry.fallbackChains.<role> is not consulted. Keep each
+# worker tier's full fallback sequence inline.
+WORKER="anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-terra, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash"
+EXECUTOR="anthropic/claude-haiku-4-5, openai-codex/gpt-5.6-luna, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash"
+TESTER="openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5-5"
 SCOUT="google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna"
 MICRO="google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite"
-CHAIN_TASK='["openai-codex/gpt-5.6-luna","openrouter/deepseek/deepseek-v4-pro","openrouter/deepseek/deepseek-v4-flash"]'
 CHAIN_SMOL='["google-antigravity/gemini-3.1-flash-lite","openai-codex/gpt-5.6-luna","openrouter/deepseek/deepseek-v4-flash"]'
 CHAIN_TINY='["google-antigravity/gemini-3.1-flash-lite","openrouter/deepseek/deepseek-v4-flash"]'
 CHAIN_COMMIT='["google-antigravity/gemini-3.1-flash-lite","openrouter/deepseek/deepseek-v4-flash"]'
-CHAIN_VISION='["anthropic/claude-sonnet-5","openrouter/deepseek/deepseek-v4-pro"]'
+CHAIN_VISION='["anthropic/claude-sonnet-5-5","openrouter/deepseek/deepseek-v4-pro"]'
 
 # Build each config value once. Keep JSON compact: --print is a machine contract.
-V_MODEL_ROLES='{"frontier_a":"'"$SIDE_A_FRONTIER"'","frontier_b":"'"$SIDE_B_FRONTIER"'","strong_a":"'"$SIDE_A_STRONG"'","strong_b":"'"$SIDE_B_STRONG"'","worker":"'"$WORKER"'","tester":"'"$TESTER"'","scout":"'"$SCOUT"'","micro":"'"$MICRO"'","default":"@strong_a:medium","plan":"@frontier_a:high","slow":"@frontier_b:xhigh","advisor":"@strong_b:high","task":"@worker:medium","smol":"@scout","tiny":"@micro","commit":"@micro","designer":"@strong_a:medium","vision":"google-antigravity/gemini-3.1-pro, @strong_a"}'
+V_MODEL_ROLES='{"frontier_a":"'"$SIDE_A_FRONTIER"'","frontier_b":"'"$SIDE_B_FRONTIER"'","strong_a":"'"$SIDE_A_STRONG"'","strong_b":"'"$SIDE_B_STRONG"'","worker":"'"$WORKER"'","executor":"'"$EXECUTOR"'","tester":"'"$TESTER"'","scout":"'"$SCOUT"'","micro":"'"$MICRO"'","default":"@strong_a:medium","plan":"@frontier_a:high","slow":"@frontier_b:xhigh","advisor":"@strong_b:high","task":"@worker:medium","smol":"@scout","tiny":"@micro","commit":"@micro","designer":"@strong_a:medium","vision":"google-antigravity/gemini-3.1-pro, @strong_a"}'
 V_MODEL_PROVIDER_ORDER='["anthropic","openai-codex","google-antigravity","openrouter"]'
 V_DEFAULT_THINKING_LEVEL='auto'
-V_CHAINS='{"default":'"$SIDE_A_CHAIN_STRONG"',"designer":'"$SIDE_A_CHAIN_STRONG"',"plan":'"$SIDE_A_CHAIN_FRONTIER"',"slow":'"$SIDE_B_CHAIN_FRONTIER"',"advisor":'"$SIDE_B_CHAIN_STRONG"',"task":'"$CHAIN_TASK"',"smol":'"$CHAIN_SMOL"',"tiny":'"$CHAIN_TINY"',"commit":'"$CHAIN_COMMIT"',"vision":'"$CHAIN_VISION"'}'
+V_CHAINS='{"default":'"$SIDE_A_CHAIN_STRONG"',"designer":'"$SIDE_A_CHAIN_STRONG"',"plan":'"$SIDE_A_CHAIN_FRONTIER"',"slow":'"$SIDE_B_CHAIN_FRONTIER"',"advisor":'"$SIDE_B_CHAIN_STRONG"',"smol":'"$CHAIN_SMOL"',"tiny":'"$CHAIN_TINY"',"commit":'"$CHAIN_COMMIT"',"vision":'"$CHAIN_VISION"'}'
 V_USAGE_AWARE_FALLBACK='true'
 V_USAGE_RESERVE_PCT='10'
 V_USAGE_RESERVE_POLICY='auto'
 V_ADVISOR_ENABLED='true'
 V_ADVISOR_SYNC_BACKLOG='3'
-V_TASK_AGENT_MODEL_OVERRIDES='{"Tester":"@tester:medium"}'
+V_TASK_AGENT_MODEL_OVERRIDES='{"Tester":"@tester:medium","sonic":"@executor:medium"}'
 V_TASK_SHOW_RESOLVED_MODEL_BADGE='true'
 V_TASK_ENABLE_LSP='true'
 V_TASK_EAGER='preferred'

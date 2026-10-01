@@ -168,12 +168,18 @@ check_aliases
 check_vendor_relation 'default vendor equals plan' @default = @plan
 check_vendor_relation 'default vendor differs from slow' @default '!' @slow
 check_vendor_relation 'default vendor differs from advisor' @default '!' @advisor
-# Tester is the only required agent-model override.
+# Tester and sonic are the required agent-model overrides.
 tester=$(override_value Tester)
+sonic=$(override_value sonic)
 if [ -z "$tester" ]; then
   fail 'task vendor differs from Tester override (missing Tester override)'
 else
   check_vendor_relation 'task vendor differs from Tester override' @task '!' "$tester"
+fi
+if [ -z "$sonic" ]; then
+  fail 'Tester override vendor differs from sonic override (missing sonic override)'
+elif [ -n "$tester" ]; then
+  check_vendor_relation 'Tester override vendor differs from sonic override' "$tester" '!' "$sonic"
 fi
 check_cheap_chains
 

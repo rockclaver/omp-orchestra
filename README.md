@@ -1,6 +1,6 @@
 # omp-orchestra
 
-**Tier-based model routing for [Oh My Pi](https://github.com/oh-my-pi) (`omp`).** Concrete model ids live in one small tier table, so swapping the smartest model is a one-line change. Cheap workers handle volume; frontier models handle decisions; `verify.sh` structurally enforces cross-vendor validation.
+**Tier-based model routing for [Oh My Pi](https://github.com/oh-my-pi) (`omp`).** Concrete model ids live in one small tier table, so swapping the smartest model is a one-line change. Anthropic workers handle implementation volume, with GPT chains behind them; frontier models handle decisions; `verify.sh` structurally enforces cross-vendor validation.
 
 ## Install
 
@@ -22,10 +22,11 @@ On subscription plans, cost is the quota window, not a per-token price. The orch
 |---|---|---|---|
 | `frontier_a` | `anthropic/claude-fable-5-1, anthropic/claude-opus-4-8` | `openai-codex/gpt-6-astra, openai-codex/gpt-5.6-sol` | Primary frontier side |
 | `frontier_b` | `openai-codex/gpt-6-astra, openai-codex/gpt-5.6-sol` | `anthropic/claude-fable-5-1, anthropic/claude-opus-4-8` | Independent frontier side |
-| `strong_a` | `anthropic/claude-sonnet-5` | `openai-codex/gpt-5.6-terra` | Primary strong side |
-| `strong_b` | `openai-codex/gpt-5.6-terra` | `anthropic/claude-sonnet-5` | Independent strong side |
-| `worker` | `openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5` | `openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5` | Implementer |
-| `tester` | `anthropic/claude-sonnet-5, openai-codex/gpt-5.6-luna` | `anthropic/claude-sonnet-5, openai-codex/gpt-5.6-luna` | Tester agent |
+| `strong_a` | `anthropic/claude-sonnet-5-5` | `openai-codex/gpt-5.6-terra` | Primary strong side |
+| `strong_b` | `openai-codex/gpt-5.6-terra` | `anthropic/claude-sonnet-5-5` | Independent strong side |
+| `worker` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-terra, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash` | same | Implementer (`task` agent) |
+| `executor` | `anthropic/claude-haiku-4-5, openai-codex/gpt-5.6-luna, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash` | same | Fast mechanical executor (`sonic` agent) |
+| `tester` | `openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5-5` | `openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5-5` | Tester agent |
 | `scout` | `google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna` | `google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna` | High-volume exploration |
 | `micro` | `google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite` | `google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite` | Background work |
 
@@ -42,6 +43,8 @@ On subscription plans, cost is the quota window, not a per-token price. The orch
 | `designer` | `@strong_a:medium` | Design work |
 | `vision` | `google-antigravity/gemini-3.1-pro, @strong_a` | Vision work |
 
+Agent overrides (`task.agentModelOverrides`): `Tester` → `@tester:medium`, `sonic` → `@executor:medium`. Role values use the first available entry, so workers run on Anthropic whenever it is logged in.
+
 ## Adopting a new model
 
 Edit one tier line in `install.sh`, or make a live change with `omp config set modelRoles.<tier> ...`, then run `./verify.sh`. `~provider/x-latest` aliases exist only on OpenRouter; subscription providers require concrete ids.
@@ -50,22 +53,23 @@ Edit one tier line in `install.sh`, or make a live change with `omp config set m
 
 Chains are per-role and contain concrete ids: omp does not accept `@aliases` in chains, and an unknown entry silently breaks the role. They preserve vendors where needed, so a reviewer remains on the other vendor after a 429. Cheap `tiny`, `commit`, and `smol` roles never fall to frontier or strong models. `retry.usageAwareFallback` pre-empts the quota wall with a 10% reserve.
 
+Subagents are different: when an agent's alias expands to several models, omp falls back only through the rest of that list and ignores `retry.fallbackChains.<role>`. The `worker` and `executor` tiers therefore carry their full fallback sequence inline (Anthropic → GPT → DeepSeek) and have no chain entry.
+
 | Role | Fallback chain |
 |---|---|
 | `default`, `designer` | `claude`: `google-antigravity/claude-sonnet-4-6` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `openai-codex/gpt-5.6-luna` → `google-antigravity/gemini-3.1-pro` → `openrouter/deepseek/deepseek-v4-pro` |
 | `plan` | `claude`: `google-antigravity/claude-opus-4-6` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `openai-codex/gpt-5.6-sol` → `openai-codex/gpt-5.6-terra` → `openrouter/deepseek/deepseek-v4-pro` |
 | `slow` | `claude`: `openai-codex/gpt-5.6-sol` → `openai-codex/gpt-5.6-terra` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `google-antigravity/claude-opus-4-6` → `openrouter/deepseek/deepseek-v4-pro` |
 | `advisor` | `claude`: `openai-codex/gpt-5.6-luna` → `google-antigravity/gemini-3.1-pro` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `google-antigravity/claude-sonnet-4-6` → `openrouter/deepseek/deepseek-v4-pro` |
-| `task` | `openai-codex/gpt-5.6-luna` → `openrouter/deepseek/deepseek-v4-pro` → `openrouter/deepseek/deepseek-v4-flash` |
 | `smol` | `google-antigravity/gemini-3.1-flash-lite` → `openai-codex/gpt-5.6-luna` → `openrouter/deepseek/deepseek-v4-flash` |
 | `tiny`, `commit` | `google-antigravity/gemini-3.1-flash-lite` → `openrouter/deepseek/deepseek-v4-flash` |
-| `vision` | `anthropic/claude-sonnet-5` → `openrouter/deepseek/deepseek-v4-pro` |
+| `vision` | `anthropic/claude-sonnet-5-5` → `openrouter/deepseek/deepseek-v4-pro` |
 
 ## Invariants and verification
 
 - `vendor(default) == vendor(plan) != vendor(slow)`.
 - `vendor(default) != vendor(advisor)`.
-- `vendor(task) != vendor(Tester override)`.
+- `vendor(task) != vendor(Tester override)` and `vendor(Tester override) != vendor(sonic override)`, checked on primary routes: Anthropic implements, GPT tests. Both tiers list the other vendor as a fallback, so the split does not hold during failover.
 - No chain entry of `tiny`/`commit`/`smol` may be an `anthropic/` or `openai-codex/` frontier or strong model; their entries are limited to `google-antigravity/*`, `openai-codex/gpt-5.6-luna`, and `openrouter/*`.
 
 ```sh
