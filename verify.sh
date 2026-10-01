@@ -156,7 +156,7 @@ check_cheap_chains() {
         gsub(/^[ \t]+|[ \t]+$/, "", values[i])
         if (values[i] !~ /^google-antigravity\// &&
             values[i] !~ /^openrouter\// &&
-            values[i] != "openai-codex/gpt-5.6-luna")
+            values[i] != "openai-codex/gpt-6-luna")
           printf "%s=%s ", $1, values[i]
       }
     }' "$TMP/chains")

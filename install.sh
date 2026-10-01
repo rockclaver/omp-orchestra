@@ -48,14 +48,14 @@ Install Oh My Pi first, then re-run this script."
 fi
 
 # ── Tier table ────────────────────────────────────────────────────────────────
-ANTH_FRONTIER="anthropic/claude-fable-5-1, anthropic/claude-opus-4-8"
+ANTH_FRONTIER="anthropic/claude-fable-5-1, anthropic/claude-opus-5-5"
 ANTH_STRONG="anthropic/claude-sonnet-5-5"
 ANTH_CHAIN_FRONTIER='["google-antigravity/claude-opus-4-6","openrouter/deepseek/deepseek-v4-pro"]'
 ANTH_CHAIN_STRONG='["google-antigravity/claude-sonnet-4-6","openrouter/deepseek/deepseek-v4-pro"]'
-OAI_FRONTIER="openai-codex/gpt-6-astra, openai-codex/gpt-5.6-sol"
-OAI_STRONG="openai-codex/gpt-5.6-terra"
-OAI_CHAIN_FRONTIER='["openai-codex/gpt-5.6-sol","openai-codex/gpt-5.6-terra","openrouter/deepseek/deepseek-v4-pro"]'
-OAI_CHAIN_STRONG='["openai-codex/gpt-5.6-luna","google-antigravity/gemini-3.1-pro","openrouter/deepseek/deepseek-v4-pro"]'
+OAI_FRONTIER="openai-codex/gpt-6-astra, openai-codex/gpt-6.1-sol"
+OAI_STRONG="openai-codex/gpt-6.1-sol"
+OAI_CHAIN_FRONTIER='["openai-codex/gpt-6.1-sol","openai-codex/gpt-6-sol","openrouter/deepseek/deepseek-v4-pro"]'
+OAI_CHAIN_STRONG='["openai-codex/gpt-6-luna","google-antigravity/gemini-3.1-pro","openrouter/deepseek/deepseek-v4-pro"]'
 
 case "$PROFILE" in
   claude)
@@ -82,20 +82,20 @@ esac
 
 # Shared worker pool. The worker-pool extension written below alternates each
 # pooled spawn between an Anthropic-first lane (_a) and an OpenAI-first lane
-# (_b): four parallel `task` spawns run two Sonnet and two Terra workers, and
-# `sonic` executors alternate Haiku and Luna. Without the extension every spawn
-# takes lane _a.
+# (_b): four parallel `task` spawns run two Sonnet 5.5 and two GPT-6.1 Sol
+# workers, and `sonic` executors alternate Haiku and GPT-6 Luna. Without the
+# extension every spawn takes lane _a.
 # A subagent whose alias expands to several models falls back only through the
 # rest of that list; retry.fallbackChains.<role> is not consulted. Keep each
 # lane's full fallback sequence inline.
-WORKER_A="anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-terra, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash"
-WORKER_B="openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash"
-EXECUTOR_A="anthropic/claude-haiku-4-5, openai-codex/gpt-5.6-luna, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash"
-EXECUTOR_B="openai-codex/gpt-5.6-luna, anthropic/claude-haiku-4-5, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash"
-TESTER="anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-luna"
-SCOUT="google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna"
+WORKER_A="anthropic/claude-sonnet-5-5, openai-codex/gpt-6.1-sol, openai-codex/gpt-6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash"
+WORKER_B="openai-codex/gpt-6.1-sol, anthropic/claude-sonnet-5-5, openai-codex/gpt-6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash"
+EXECUTOR_A="anthropic/claude-haiku-4-5, openai-codex/gpt-6-luna, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash"
+EXECUTOR_B="openai-codex/gpt-6-luna, anthropic/claude-haiku-4-5, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash"
+TESTER="anthropic/claude-sonnet-5-5, openai-codex/gpt-6-luna"
+SCOUT="google-antigravity/gemini-3.5-flash, openai-codex/gpt-6-luna"
 MICRO="google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite"
-CHAIN_SMOL='["google-antigravity/gemini-3.1-flash-lite","openai-codex/gpt-5.6-luna","openrouter/deepseek/deepseek-v4-flash"]'
+CHAIN_SMOL='["google-antigravity/gemini-3.1-flash-lite","openai-codex/gpt-6-luna","openrouter/deepseek/deepseek-v4-flash"]'
 CHAIN_TINY='["google-antigravity/gemini-3.1-flash-lite","openrouter/deepseek/deepseek-v4-flash"]'
 CHAIN_COMMIT='["google-antigravity/gemini-3.1-flash-lite","openrouter/deepseek/deepseek-v4-flash"]'
 CHAIN_VISION='["anthropic/claude-sonnet-5-5","openrouter/deepseek/deepseek-v4-pro"]'

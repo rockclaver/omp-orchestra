@@ -20,16 +20,16 @@ On subscription plans, cost is the quota window, not a per-token price. The orch
 
 | Tier | `claude` profile value | `codex` profile value | Job |
 |---|---|---|---|
-| `frontier_a` | `anthropic/claude-fable-5-1, anthropic/claude-opus-4-8` | `openai-codex/gpt-6-astra, openai-codex/gpt-5.6-sol` | Primary frontier side |
-| `frontier_b` | `openai-codex/gpt-6-astra, openai-codex/gpt-5.6-sol` | `anthropic/claude-fable-5-1, anthropic/claude-opus-4-8` | Independent frontier side |
-| `strong_a` | `anthropic/claude-sonnet-5-5` | `openai-codex/gpt-5.6-terra` | Primary strong side |
-| `strong_b` | `openai-codex/gpt-5.6-terra` | `anthropic/claude-sonnet-5-5` | Independent strong side |
-| `worker_a` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-terra, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash` | same | Implementer pool, Anthropic lane (`task` agent) |
-| `worker_b` | `openai-codex/gpt-5.6-terra, anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash` | same | Implementer pool, OpenAI lane (`task` agent) |
-| `executor_a` | `anthropic/claude-haiku-4-5, openai-codex/gpt-5.6-luna, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash` | same | Executor pool, Anthropic lane (`sonic` agent) |
-| `executor_b` | `openai-codex/gpt-5.6-luna, anthropic/claude-haiku-4-5, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash` | same | Executor pool, OpenAI lane (`sonic` agent) |
-| `tester` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-luna` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-5.6-luna` | Tester agent |
-| `scout` | `google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna` | `google-antigravity/gemini-3.5-flash, openai-codex/gpt-5.6-luna` | High-volume exploration |
+| `frontier_a` | `anthropic/claude-fable-5-1, anthropic/claude-opus-5-5` | `openai-codex/gpt-6-astra, openai-codex/gpt-6.1-sol` | Primary frontier side |
+| `frontier_b` | `openai-codex/gpt-6-astra, openai-codex/gpt-6.1-sol` | `anthropic/claude-fable-5-1, anthropic/claude-opus-5-5` | Independent frontier side |
+| `strong_a` | `anthropic/claude-sonnet-5-5` | `openai-codex/gpt-6.1-sol` | Primary strong side |
+| `strong_b` | `openai-codex/gpt-6.1-sol` | `anthropic/claude-sonnet-5-5` | Independent strong side |
+| `worker_a` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-6.1-sol, openai-codex/gpt-6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash` | same | Implementer pool, Anthropic lane (`task` agent) |
+| `worker_b` | `openai-codex/gpt-6.1-sol, anthropic/claude-sonnet-5-5, openai-codex/gpt-6-luna, openrouter/deepseek/deepseek-v4-pro, openrouter/deepseek/deepseek-v4-flash` | same | Implementer pool, OpenAI lane (`task` agent) |
+| `executor_a` | `anthropic/claude-haiku-4-5, openai-codex/gpt-6-luna, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash` | same | Executor pool, Anthropic lane (`sonic` agent) |
+| `executor_b` | `openai-codex/gpt-6-luna, anthropic/claude-haiku-4-5, google-antigravity/gemini-3.5-flash, openrouter/deepseek/deepseek-v4-flash` | same | Executor pool, OpenAI lane (`sonic` agent) |
+| `tester` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-6-luna` | `anthropic/claude-sonnet-5-5, openai-codex/gpt-6-luna` | Tester agent |
+| `scout` | `google-antigravity/gemini-3.5-flash, openai-codex/gpt-6-luna` | `google-antigravity/gemini-3.5-flash, openai-codex/gpt-6-luna` | High-volume exploration |
 | `micro` | `google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite` | `google-antigravity/gemini-3.5-flash-lite, google-antigravity/gemini-3.1-flash-lite` | Background work |
 
 | Role | Mapping | Job |
@@ -51,8 +51,8 @@ Agent overrides (`task.agentModelOverrides`): `Tester` → `@tester:medium`, `so
 
 omp resolves a role to its first available model, so one role alone can't spread workers across vendors. The installed extension `omp-orchestra-worker-pool.ts` hooks `before_subagent_spawn` and alternates each pooled spawn between lane `_a` (Anthropic-first) and lane `_b` (OpenAI-first):
 
-- `task` agents alternate `@worker_a` / `@worker_b`: a batch of four runs two `claude-sonnet-5-5` and two `gpt-5.6-terra` workers at once.
-- `sonic` executors alternate `@executor_a` / `@executor_b`: `claude-haiku-4-5` and `gpt-5.6-luna`.
+- `task` agents alternate `@worker_a` / `@worker_b`: a batch of four runs two `claude-sonnet-5-5` and two `gpt-6.1-sol` workers at once.
+- `sonic` executors alternate `@executor_a` / `@executor_b`: `claude-haiku-4-5` and `gpt-6-luna`.
 - The rotation is per agent type and process-wide, and it keeps the role's thinking suffix (`:medium`). Spawns with an explicit model (for example `^`-tagged `m1` agents) carry no role and are left alone.
 - Without the extension, every pooled spawn takes lane `_a`.
 
@@ -68,11 +68,11 @@ Subagents are different: when an agent's alias expands to several models, omp fa
 
 | Role | Fallback chain |
 |---|---|
-| `default`, `designer` | `claude`: `google-antigravity/claude-sonnet-4-6` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `openai-codex/gpt-5.6-luna` → `google-antigravity/gemini-3.1-pro` → `openrouter/deepseek/deepseek-v4-pro` |
-| `plan` | `claude`: `google-antigravity/claude-opus-4-6` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `openai-codex/gpt-5.6-sol` → `openai-codex/gpt-5.6-terra` → `openrouter/deepseek/deepseek-v4-pro` |
-| `slow` | `claude`: `openai-codex/gpt-5.6-sol` → `openai-codex/gpt-5.6-terra` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `google-antigravity/claude-opus-4-6` → `openrouter/deepseek/deepseek-v4-pro` |
-| `advisor` | `claude`: `openai-codex/gpt-5.6-luna` → `google-antigravity/gemini-3.1-pro` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `google-antigravity/claude-sonnet-4-6` → `openrouter/deepseek/deepseek-v4-pro` |
-| `smol` | `google-antigravity/gemini-3.1-flash-lite` → `openai-codex/gpt-5.6-luna` → `openrouter/deepseek/deepseek-v4-flash` |
+| `default`, `designer` | `claude`: `google-antigravity/claude-sonnet-4-6` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `openai-codex/gpt-6-luna` → `google-antigravity/gemini-3.1-pro` → `openrouter/deepseek/deepseek-v4-pro` |
+| `plan` | `claude`: `google-antigravity/claude-opus-4-6` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `openai-codex/gpt-6.1-sol` → `openai-codex/gpt-6-sol` → `openrouter/deepseek/deepseek-v4-pro` |
+| `slow` | `claude`: `openai-codex/gpt-6.1-sol` → `openai-codex/gpt-6-sol` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `google-antigravity/claude-opus-4-6` → `openrouter/deepseek/deepseek-v4-pro` |
+| `advisor` | `claude`: `openai-codex/gpt-6-luna` → `google-antigravity/gemini-3.1-pro` → `openrouter/deepseek/deepseek-v4-pro`; `codex`: `google-antigravity/claude-sonnet-4-6` → `openrouter/deepseek/deepseek-v4-pro` |
+| `smol` | `google-antigravity/gemini-3.1-flash-lite` → `openai-codex/gpt-6-luna` → `openrouter/deepseek/deepseek-v4-flash` |
 | `tiny`, `commit` | `google-antigravity/gemini-3.1-flash-lite` → `openrouter/deepseek/deepseek-v4-flash` |
 | `vision` | `anthropic/claude-sonnet-5-5` → `openrouter/deepseek/deepseek-v4-pro` |
 
@@ -82,7 +82,7 @@ Subagents are different: when an agent's alias expands to several models, omp fa
 - `vendor(default) != vendor(advisor)`.
 - `vendor(worker_a) != vendor(worker_b)` and `vendor(executor_a) != vendor(executor_b)`, so the pool always spans both vendors. Lanes fall back to the other vendor, so during failover both lanes can land on one vendor.
 - The `sonic` override is `@executor_a:medium` (the role the pool keys on), and the worker-pool extension is installed.
-- No chain entry of `tiny`/`commit`/`smol` may be an `anthropic/` or `openai-codex/` frontier or strong model; their entries are limited to `google-antigravity/*`, `openai-codex/gpt-5.6-luna`, and `openrouter/*`.
+- No chain entry of `tiny`/`commit`/`smol` may be an `anthropic/` or `openai-codex/` frontier or strong model; their entries are limited to `google-antigravity/*`, `openai-codex/gpt-6-luna`, and `openrouter/*`.
 
 ```sh
 ./verify.sh
